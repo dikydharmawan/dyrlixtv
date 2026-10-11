@@ -61,7 +61,12 @@ Setiap perangkat bisa memperbarui sendiri APK-nya selama masih terhubung interne
 ### b. Jalankan di perangkat
 1. Buka tab **Update** di DYRLIX.
 2. Isi URL `update.json` (perangkat menyimpannya; bisa juga diubah via
-   `app.json` → `extra.updateManifestUrl` untuk default bawaan).
+   `app.json` → `extra.updateManifestUrl` untuk default bawaan). Untuk hosting
+   gh-pages, pakai URL jsDelivr agar cache cepat segar:
+
+   ```
+   https://cdn.jsdelivr.net/gh/dikydharmawan/dyrlixtv@gh-pages/update.json
+   ```
 3. Tekan **Periksa Update** → bila ada versi baru, **Unduh & Pasang**.
 4. Installer sistem akan terbuka. Jika diminta, izinkan "Instal aplikasi tidak
    dikenal" untuk DYRLIX (tombol **Buka Izin Instal Aplikasi** di tab Update

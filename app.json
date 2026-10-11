@@ -77,7 +77,7 @@
     },
     "extra": {
       "router": {},
-      "updateManifestUrl": "",
+      "updateManifestUrl": "https://cdn.jsdelivr.net/gh/dikydharmawan/dyrlixtv@gh-pages/update.json",
       "eas": {
         "projectId": "0848ebf7-b052-4db2-b47c-fdd78e55cd90"
       }

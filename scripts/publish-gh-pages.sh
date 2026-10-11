@@ -60,7 +60,7 @@ esac
 SLUG="${SLUG%.git}"
 
 APK_NAME="dyrlix-${VERSION_NAME:-$VERSION_CODE}.apk"
-APK_URL="https://github.com/${SLUG}/raw/gh-pages/${APK_NAME}"
+APK_URL="https://raw.githubusercontent.com/${SLUG}/gh-pages/${APK_NAME}"
 
 echo "Repo        : $SLUG"
 echo "APK         : $APK_NAME"
@@ -93,6 +93,8 @@ node "$PROJECT_ROOT/scripts/prepare-update.js" \
   --out "$WORKTREE/update.json"
 
 git -C "$WORKTREE" add -A
+# .gitignore gh-pages mengabaikan *.apk, jadi paksa tambahkan rilis ini.
+git -C "$WORKTREE" add -f "$APK_NAME"
 if git -C "$WORKTREE" diff --cached --quiet; then
   echo "Tidak ada perubahan untuk di-commit."
   exit 0
@@ -101,5 +103,6 @@ git -C "$WORKTREE" commit -q -m "Rilis ${VERSION_NAME:-$VERSION_CODE} (versionCo
 git -C "$WORKTREE" push origin gh-pages
 
 echo
-echo "Selesai. Manifest self-updater:"
-echo "  https://github.com/${SLUG}/raw/gh-pages/update.json"
+echo "Selesai. Manifest self-updater (pakai jsDelivr agar cache cepat segar):"
+echo "  https://cdn.jsdelivr.net/gh/${SLUG}@gh-pages/update.json"
+echo "  (cadangan GitHub: https://github.com/${SLUG}/raw/gh-pages/update.json )"
