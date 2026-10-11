@@ -15,13 +15,14 @@ import { ChannelCard } from '@/components/ChannelCard';
 import { EmptyState } from '@/components/EmptyState';
 import { InfoBanner } from '@/components/InfoBanner';
 import { Screen } from '@/components/Screen';
-import { TVFocusGuide } from '@/components/Tv';
+import { TVFocusGuide, tvPrefFocus } from '@/components/Tv';
 import { colors, fontSize, radius, spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
 import { loadPlaylistChannels } from '@/services/playlistLoader';
 import { getPlaylistById } from '@/services/playlistStorage';
 import type { Channel, Playlist } from '@/types';
 import { isPlaceholder, withGridPlaceholders } from '@/utils/grid';
+import { checkStreams } from '@/utils/stream';
 
 export default function PlaylistDetailScreen() {
   const router = useRouter();
@@ -35,6 +36,9 @@ export default function PlaylistDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState<string | null>(null);
+  const [deadIds, setDeadIds] = useState<ReadonlySet<string>>(new Set());
 
   const load = useCallback(async () => {
     if (!playlistId) {
@@ -54,6 +58,8 @@ export default function PlaylistDetailScreen() {
   const refresh = useCallback(async () => {
     try {
       await load();
+      setDeadIds(new Set());
+      setScanNote(null);
       setError(null);
     } catch (e) {
       setChannels([]);
@@ -62,6 +68,36 @@ export default function PlaylistDetailScreen() {
       setLoading(false);
     }
   }, [load]);
+
+  const handleScan = useCallback(async () => {
+    if (channels.length === 0 || scanning) return;
+    setScanning(true);
+    setDeadIds(new Set());
+    setScanNote(null);
+
+    const results = await checkStreams(
+      channels.map((channel) => ({ id: channel.id, url: channel.url, headers: channel.headers })),
+    );
+
+    const dead = new Set<string>();
+    let unknown = 0;
+    for (const result of results) {
+      if (result.status === 'dead') dead.add(result.id);
+      else if (result.status === 'network' || result.status === 'invalid') unknown += 1;
+    }
+
+    setDeadIds(dead);
+    setScanNote(
+      dead.size === 0
+        ? unknown > 0
+          ? `Semua channel tampak aktif (${unknown} tak dapat diuji — periksa koneksi).`
+          : 'Semua channel dapat diakses. Tidak ada link mati.'
+        : unknown > 0
+          ? `${dead.size} channel mati (404) terdeteksi, ${unknown} tak dapat diuji karena jaringan.`
+          : `${dead.size} channel mati (404) terdeteksi — tandai MATI.`,
+    );
+    setScanning(false);
+  }, [channels, scanning]);
 
   useEffect(() => {
     let active = true;
@@ -98,7 +134,12 @@ export default function PlaylistDetailScreen() {
     (channel: Channel) => {
       router.push({
         pathname: '/player',
-        params: { url: channel.url, name: channel.name, logo: channel.logo ?? '' },
+        params: {
+          url: channel.url,
+          name: channel.name,
+          logo: channel.logo ?? '',
+          headers: channel.headers ? JSON.stringify(channel.headers) : '',
+        },
       });
     },
     [router],
@@ -142,7 +183,12 @@ export default function PlaylistDetailScreen() {
             isPlaceholder(item) ? (
               <View style={styles.placeholder} />
             ) : (
-              <ChannelCard channel={item} onPress={openChannel} first={index === 0} />
+              <ChannelCard
+                channel={item}
+                onPress={openChannel}
+                first={index === 0}
+                dead={deadIds.has(item.id)}
+              />
             )
           }
         columnWrapperStyle={columns > 1 ? { gap: gutter } : undefined}
@@ -151,14 +197,32 @@ export default function PlaylistDetailScreen() {
           { gap: gutter, paddingHorizontal: horizontalPadding },
         ]}
         ListHeaderComponent={
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Cari channel…"
-            placeholderTextColor={colors.textMuted}
-            autoCorrect={false}
-            style={[styles.search, { fontSize: isTV ? fontSize.lg : fontSize.md }]}
-          />
+          <View style={styles.header}>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Cari channel…"
+              placeholderTextColor={colors.textMuted}
+              autoCorrect={false}
+              style={[styles.search, { fontSize: isTV ? fontSize.lg : fontSize.md }]}
+            />
+            <AppButton
+              title={scanning ? 'Memeriksa…' : 'Periksa Channel Mati'}
+              icon={scanning ? undefined : 'pulse'}
+              large
+              fullWidth
+              loading={scanning}
+              disabled={scanning || channels.length === 0}
+              onPress={handleScan}
+              tvFocus={tvPrefFocus(true)}
+            />
+            {scanNote ? (
+              <InfoBanner
+                variant={deadIds.size > 0 ? 'danger' : 'info'}
+                message={scanNote}
+              />
+            ) : null}
+          </View>
         }
         ListEmptyComponent={
           <EmptyState
@@ -180,7 +244,11 @@ export default function PlaylistDetailScreen() {
     <Screen edges={['top', 'left', 'right']}>
       <AppHeader
         title={playlist?.name ?? 'Playlist'}
-        subtitle={loading ? 'Memuat…' : `${channels.length} channel`}
+        subtitle={
+          loading
+            ? 'Memuat…'
+            : `${channels.length} channel${deadIds.size > 0 ? ` · ${deadIds.size} mati` : ''}`
+        }
         onBack={() => router.back()}
       />
       {renderBody()}
@@ -219,6 +287,9 @@ const styles = StyleSheet.create({
   placeholder: {
     flex: 1,
   },
+  header: {
+    gap: spacing.md,
+  },
   search: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -228,7 +299,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     minHeight: 56,
-    marginBottom: spacing.md,
   },
   footer: {
     paddingTop: spacing.md,

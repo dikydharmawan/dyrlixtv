@@ -22,11 +22,20 @@ interface ChannelCardProps {
   style?: StyleProp<ViewStyle>;
   /** Kartu pertama (menerima fokus awal saat layar dibuka di TV). */
   first?: boolean;
+  /** Menandai channel yang link-nya mati (hasil pemindaian). */
+  dead?: boolean;
   /** Properti fokus TV tambahan (nextFocus*). Aman di HP & web. */
   tvFocus?: TVFocusProps;
 }
 
-export function ChannelCard({ channel, onPress, style, first = false, tvFocus }: ChannelCardProps) {
+export function ChannelCard({
+  channel,
+  onPress,
+  style,
+  first = false,
+  dead = false,
+  tvFocus,
+}: ChannelCardProps) {
   const { isTV } = useResponsive();
   const [focused, setFocused] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
@@ -77,6 +86,13 @@ export function ChannelCard({ channel, onPress, style, first = false, tvFocus }:
             <Text style={styles.badgeText}>DEMO</Text>
           </View>
         ) : null}
+
+        {dead ? (
+          <View style={styles.deadBadge}>
+            <Ionicons name="close-circle" size={14} color={colors.white} />
+            <Text style={styles.deadBadgeText}>MATI</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.body}>
@@ -91,9 +107,9 @@ export function ChannelCard({ channel, onPress, style, first = false, tvFocus }:
             {channel.group ?? 'Umum'}
           </Text>
           <Ionicons
-            name={focused ? 'play-circle' : 'play-circle-outline'}
+            name={dead ? 'close-circle' : focused ? 'play-circle' : 'play-circle-outline'}
             size={isTV ? 30 : 24}
-            color={colors.primary}
+            color={dead ? colors.danger : colors.primary}
           />
         </View>
       </View>
@@ -131,6 +147,24 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: colors.background,
+    fontSize: fontSize.xs,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  deadBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: colors.danger,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  deadBadgeText: {
+    color: colors.white,
     fontSize: fontSize.xs,
     fontWeight: '900',
     letterSpacing: 0.5,

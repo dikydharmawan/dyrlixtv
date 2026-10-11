@@ -2,6 +2,13 @@ import type { Channel } from '@/types';
 
 const ATTRIBUTE_PATTERN = /([A-Za-z0-9_-]+)="([^"]*)"/g;
 
+interface PendingChannel {
+  name?: string;
+  logo?: string | null;
+  group?: string;
+  headers?: Record<string, string>;
+}
+
 function parseAttributes(input: string): Record<string, string> {
   const attributes: Record<string, string> = {};
   const regex = new RegExp(ATTRIBUTE_PATTERN.source, 'g');
@@ -10,6 +17,41 @@ function parseAttributes(input: string): Record<string, string> {
     attributes[match[1].toLowerCase()] = match[2];
   }
   return attributes;
+}
+
+/** Menggabungkan header HTTP dari #EXTHTTP (JSON) atau #KODIPROP (|\u0080 dipisah "="). */
+function collectHeaders(pending: PendingChannel | null, line: string): PendingChannel | null {
+  const base = pending ?? {};
+  const merged: Record<string, string> = { ...(base.headers ?? {}) };
+
+  if (/^#EXTHTTP:/i.test(line)) {
+    const raw = line.slice('#EXTHTTP:'.length).trim();
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === 'object') {
+        for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+          if (typeof value === 'string') merged[key] = value;
+        }
+      }
+    } catch {
+      // abaikan baris #EXTHTTP yang tidak valid
+    }
+  } else if (/^#KODIPROP:/i.test(line)) {
+    const eq = line.indexOf('=');
+    if (eq >= 0) {
+      const value = line.slice(eq + 1);
+      for (const pair of value.split('|')) {
+        const i = pair.indexOf('=');
+        if (i > 0) {
+          const key = pair.slice(0, i).trim();
+          const val = pair.slice(i + 1).trim();
+          if (key && val) merged[key] = val;
+        }
+      }
+    }
+  }
+
+  return { ...base, headers: Object.keys(merged).length > 0 ? merged : undefined };
 }
 
 /**
@@ -48,7 +90,7 @@ export function parseM3U(content: string, playlistId = 'playlist'): Channel[] {
 
   const lines = content.split(/\r?\n/);
   const channels: Channel[] = [];
-  let pending: { name?: string; logo?: string | null; group?: string } | null = null;
+  let pending: PendingChannel | null = null;
   let index = 0;
 
   for (const rawLine of lines) {
@@ -69,6 +111,12 @@ export function parseM3U(content: string, playlistId = 'playlist'): Channel[] {
       continue;
     }
 
+    // Direktif header stream (#EXTHTTP / #KODIPROP) dikumpulkan untuk channel berikutnya.
+    if (/^#EXTHTTP:/i.test(line) || /^#KODIPROP:/i.test(line)) {
+      pending = collectHeaders(pending, line);
+      continue;
+    }
+
     // Lewati baris komentar/direktif lain (#EXTM3U, #EXTVLCOPT, dsb).
     if (line.startsWith('#')) continue;
 
@@ -81,6 +129,7 @@ export function parseM3U(content: string, playlistId = 'playlist'): Channel[] {
       url: line,
       logo: pending?.logo ?? null,
       group: pending?.group,
+      headers: pending?.headers,
     });
 
     index += 1;

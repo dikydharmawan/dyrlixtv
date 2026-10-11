@@ -46,6 +46,19 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="update"
+        options={{
+          title: 'Update',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'cloud-download' : 'cloud-download-outline'}
+              size={iconSize}
+              color={color}
+            />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

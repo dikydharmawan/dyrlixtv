@@ -22,6 +22,13 @@ const TVRI_HLS = 'https://ott-balancer.tvri.go.id/live/eds';
  *   atau tambahkan playlist M3U Anda sendiri dari menu "Tambah Playlist".
  * - Tautan pihak ketiga sepenuhnya menjadi tanggung jawab pengguna.
  */
+/**
+ * Playlist M3U bawaan yang dimuat di Beranda.
+ * Dapat diperbarui tanpa update aplikasi: cukup ubah isi file di repo GitHub.
+ */
+export const DEFAULT_PLAYLIST_URL =
+  'https://raw.githubusercontent.com/dhasap/dhanytv/main/dhanytv.m3u';
+
 export const DEFAULT_CHANNELS: Channel[] = [
   {
     id: 'tvri-nasional',
@@ -34,7 +41,7 @@ export const DEFAULT_CHANNELS: Channel[] = [
     id: 'tvri-sport',
     name: 'TVRI Sport',
     group: 'Olahraga',
-    url: `${TVRI_HLS}/Sport/hls/Sport.m3u8`,
+    url: `${TVRI_HLS}/SportHD/hls/SportHD.m3u8`,
     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/TVRI_2023.svg/240px-TVRI_2023.svg.png',
   },
   {

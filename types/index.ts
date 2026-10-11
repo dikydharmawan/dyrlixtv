@@ -11,6 +11,8 @@ export interface Channel {
   group?: string;
   /** Menandai channel contoh/demo (bukan siaran resmi). */
   isDemo?: boolean;
+  /** Header HTTP khusus untuk stream (mis. dari #EXTHTTP/#KODIPROP di M3U). */
+  headers?: Record<string, string>;
 }
 
 export type PlaylistType = 'url' | 'content';

@@ -1,9 +1,61 @@
 # DYRLIX — Install & Update Jarak Jauh (10 Perangkat, Lintas Jaringan)
 
 Aplikasi dipasang dengan cara sideload (bukan Play Store). Karena perangkat TV/STB
-berada di jaringan (rumah/kantor) yang berbeda-beda, semua komunikasi lewat **Tailscale**
-(gravarmesh terenkripsi). Hasilnya: install & update `dyrlix.apk` dari PC mana pun
-yang punya internet — tanpa menyentuh konfigurasi router masing-masing.
+berada di jaringan (rumah/kantor) yang berbeda-beda, pembaruan ditangani oleh
+**self-updater di dalam aplikasi** (tidak butuh Tailscale maupun layanan pihak
+ketiga). Tailscale hanya tersedia sebagai cadangan opsional untuk menembus koneksi
+ADB manual dari PC.
+
+---
+
+## 0. Cara utama: pembaruan lewat aplikasi (self-updater)
+
+Setiap perangkat bisa memperbarui sendiri APK-nya selama masih terhubung internet.
+
+### a. Terbitkan APK + manifest ke host Anda
+1. Jalankan build rilis dengan EAS (profil `release`, output APK) — `dyrlix.apk`.
+2. Cek **versionCode** hasil build (EAS menomori dari 1, 2, 3, ...). Lihat detail
+   build di https://expo.dev → project dyrlix → builds.
+3. Upload APK ke hosting statis/halaman Anda (contoh: localhost, NAS, GitHub,
+   Cloudflare Pages — apa pun yang bisa diakses perangkat TV).
+4. Siapkan `update.json` (boleh manual, atau skrip):
+
+   ```bash
+   node scripts/prepare-update.js \
+     --version-code 2 \
+     --version-name 1.0.1 \
+     --apk-url https://host-anda.com/dyrlix/dyrlix-2.apk \
+     --notes "Perbaikan playback & stabilitas"
+   ```
+
+   Hasilnya kira-kira:
+
+   ```json
+   {
+     "packageName": "com.dyrlix.player",
+     "versionCode": 2,
+     "versionName": "1.0.1",
+     "apkUrl": "https://host-anda.com/dyrlix/dyrlix-2.apk",
+     "notes": "Perbaikan playback & stabilitas",
+     "publishedAt": "2026-10-11T00:00:00Z"
+   }
+   ```
+
+### b. Jalankan di perangkat
+1. Buka tab **Update** di DYRLIX.
+2. Isi URL `update.json` (perangkat menyimpannya; bisa juga diubah via
+   `app.json` → `extra.updateManifestUrl` untuk default bawaan).
+3. Tekan **Periksa Update** → bila ada versi baru, **Unduh & Pasang**.
+4. Installer sistem akan terbuka. Jika diminta, izinkan "Instal aplikasi tidak
+   dikenal" untuk DYRLIX (tombol **Buka Izin Instal Aplikasi** di tab Update
+   mengarah ke halaman itu).
+
+Cara ini bekerja untuk **semua 10 perangkat sekaligus** — cukup update satu file
+`update.json` + APK di server; tiap perangkat yang memeriksa akan mendapat versi baru.
+
+---
+
+## 1. Cadangan: install/update manual via Tailscale + adb (opsional)
 
 ```
 PC Anda (jaringan A) ─┬─ 100.x.0.11  TV Ruang Tamu  (rumah B)

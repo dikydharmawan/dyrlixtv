@@ -2,24 +2,54 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEvent } from 'expo';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { colors, fontSize, radius, spacing } from '@/constants/theme';
 import { isTV, tvPrefFocus } from '@/components/Tv';
+import { checkStream, friendlyStreamError, type StreamCheck } from '@/utils/stream';
 
 export default function PlayerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ url?: string; name?: string }>();
+  const params = useLocalSearchParams<{ url?: string; name?: string; headers?: string }>();
 
   const url = typeof params.url === 'string' ? params.url : '';
   const title = (typeof params.name === 'string' && params.name) || 'Siaran';
   const [backFocused, setBackFocused] = useState(false);
+  const [preCheck, setPreCheck] = useState<StreamCheck | null>(null);
 
-  const source = useMemo(() => (url ? { uri: url } : null), [url]);
+  const headers = useMemo(() => {
+    const raw = typeof params.headers === 'string' ? params.headers : '';
+    if (!raw) return undefined;
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === 'object') {
+        return parsed as Record<string, string>;
+      }
+    } catch {
+      // header tidak valid → dibiarkan tanpa header
+    }
+    return undefined;
+  }, [params.headers]);
+
+  const source = useMemo(
+    () => (url ? { uri: url, headers } : null),
+    [url, headers],
+  );
+
+  useEffect(() => {
+    if (!url) return;
+    let active = true;
+    void checkStream(url, 8000, headers).then((result) => {
+      if (active) setPreCheck(result);
+    });
+    return () => {
+      active = false;
+    };
+  }, [url, headers]);
 
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = false;
@@ -28,13 +58,17 @@ export default function PlayerScreen() {
 
   const { status, error } = useEvent(player, 'statusChange', { status: player.status });
 
-  const isLoading = Boolean(url) && (status === 'loading' || status === 'idle');
-  const hasError = !url || status === 'error';
+  const deadLink = preCheck === 'dead';
+  const isLoading =
+    Boolean(url) && (status === 'loading' || status === 'idle') && !deadLink;
+  const hasError = !url || status === 'error' || deadLink;
 
   const errorMessage = !url
     ? 'URL stream tidak valid atau tidak ditemukan.'
-    : (error as { message?: string } | undefined)?.message ??
-      'Stream tidak dapat diputar. Periksa koneksi atau tautan.';
+    : deadLink
+      ? 'Kanal tidak tersedia (HTTP 404) — tautan mati atau diblokir server. Coba channel lain atau hapus dari playlist.'
+      : friendlyStreamError(error) ??
+        'Stream tidak dapat diputar. Periksa koneksi atau tautan.';
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -46,9 +80,11 @@ export default function PlayerScreen() {
 
   const retry = useCallback(() => {
     if (!url) return;
-    player.replace({ uri: url });
+    setPreCheck(null);
+    void checkStream(url, 8000, headers).then(setPreCheck);
+    player.replace({ uri: url, headers });
     player.play();
-  }, [player, url]);
+  }, [player, url, headers]);
 
   return (
     <View style={styles.container}>
