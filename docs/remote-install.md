@@ -13,6 +13,23 @@ ADB manual dari PC.
 Setiap perangkat bisa memperbarui sendiri APK-nya selama masih terhubung internet.
 
 ### a. Terbitkan APK + manifest ke host Anda
+
+**Cara singkat (gh-pages sebagai hosting):**
+1. Naikkan `version` + `versionCode` di `app.json`.
+2. Build rilis: `npx eas-cli build -p android --profile release` (output `dyrlix.apk`).
+3. Publikasikan (mengunggah APK + `update.json` ke branch `gh-pages`):
+
+   ```bash
+   ./scripts/publish-gh-pages.sh \
+     --apk ./dyrlix.apk \
+     --version-code 5 \
+     --version-name 1.0.3 \
+     --notes "Playback lebih lancar, ukuran APK lebih kecil"
+   ```
+
+   Manifest default: `https://github.com/dikydharmawan/dyrlixtv/raw/gh-pages/update.json`.
+
+**Cara manual / host sendiri:**
 1. Jalankan build rilis dengan EAS (profil `release`, output APK) — `dyrlix.apk`.
 2. Cek **versionCode** hasil build (EAS menomori dari 1, 2, 3, ...). Lihat detail
    build di https://expo.dev → project dyrlix → builds.
