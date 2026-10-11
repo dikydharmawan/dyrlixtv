@@ -1,8 +1,8 @@
 {
   "packageName": "com.dyrlix.player",
-  "versionCode": 6,
-  "versionName": "1.0.4",
-  "apkUrl": "https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/dyrlix-1.0.4.apk",
-  "notes": "Perbaikan playback: header default, pra-cek tidak lagi memblokir, retry otomatis, persist channel mati, dukungan #EXTVLCOPT",
-  "publishedAt": "2026-10-11T16:33:27.189Z"
+  "versionCode": 7,
+  "versionName": "1.0.5",
+  "apkUrl": "https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/dyrlix-1.0.5.apk",
+  "notes": "Perbaikan tempel teks M3U: dukung akhir baris CR, pemisah U+2028, BOM/karakter tak terlihat, dan kutip keriting",
+  "publishedAt": "2026-10-11T16:51:07.843Z"
 }
