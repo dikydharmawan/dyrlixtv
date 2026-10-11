@@ -33,22 +33,76 @@ export function getInstalledVersion(): { versionName: string | null; versionCode
   };
 }
 
+/** Menambahkan query anti-cache agar CDN/proxy tidak menyajikan update.json lama. */
+function withCacheBuster(url: string): string {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}t=${Date.now()}`;
+}
+
+/**
+ * Beberapa URL yang layak dicoba untuk manifest yang sama.
+ *
+ * jsDelivr `@branch` menyimpan pemetaan branch→commit sampai 12 jam, sehingga
+ * manifest bisa "macet" di versi lama walau file di GitHub sudah baru. Karena
+ * itu, bila URL memakai jsDelivr, kami tambahkan padanan raw.githubusercontent
+ * sebagai cadangan. Pemanggil memilih manifest dengan versionCode tertinggi.
+ */
+function candidateManifestUrls(url: string): string[] {
+  const urls = [url];
+  const match = url.match(
+    /^https?:\/\/cdn\.jsdelivr\.net\/gh\/([^/@]+)\/([^/@]+)@([^/]+)\/(.+)$/,
+  );
+  if (match) {
+    const [, user, repo, ref, path] = match;
+    urls.push(`https://raw.githubusercontent.com/${user}/${repo}/${ref}/${path}`);
+  }
+  return urls;
+}
+
 async function fetchManifest(manifestUrl: string): Promise<UpdateManifest> {
-  const res = await fetch(manifestUrl, {
-    headers: { accept: 'application/json' },
-  });
-  if (!res.ok) {
-    throw new Error(`Server merespons HTTP ${res.status}`);
+  let lastError: unknown;
+  let best: UpdateManifest | null = null;
+
+  for (const candidate of candidateManifestUrls(manifestUrl)) {
+    try {
+      const res = await fetch(withCacheBuster(candidate), {
+        headers: { accept: 'application/json', 'cache-control': 'no-cache' },
+      });
+      if (!res.ok) {
+        lastError = new Error(`Server merespons HTTP ${res.status}`);
+        continue;
+      }
+      const data = (await res.json()) as Partial<UpdateManifest>;
+      if (
+        typeof data?.versionCode !== 'number' ||
+        typeof data?.apkUrl !== 'string' ||
+        !data.apkUrl
+      ) {
+        lastError = new Error('update.json tidak valid (butuh versionCode & apkUrl).');
+        continue;
+      }
+      const applicationId = Application.applicationId;
+      if (
+        applicationId &&
+        typeof data.packageName === 'string' &&
+        data.packageName !== applicationId
+      ) {
+        lastError = new Error('Manifest update bukan untuk aplikasi ini.');
+        continue;
+      }
+      const manifest = data as UpdateManifest;
+      if (!best || manifest.versionCode > best.versionCode) {
+        best = manifest;
+      }
+    } catch (e) {
+      lastError = e;
+    }
   }
-  const data = (await res.json()) as Partial<UpdateManifest>;
-  if (typeof data?.versionCode !== 'number' || typeof data?.apkUrl !== 'string' || !data.apkUrl) {
-    throw new Error('update.json tidak valid (butuh versionCode & apkUrl).');
+
+  if (!best) {
+    throw lastError instanceof Error ? lastError : new Error('Gagal memuat manifest update.');
   }
-  const applicationId = Application.applicationId;
-  if (applicationId && typeof data.packageName === 'string' && data.packageName !== applicationId) {
-    throw new Error('Manifest update bukan untuk aplikasi ini.');
-  }
-  return data as UpdateManifest;
+  return best;
 }
 
 /** Periksa apakah ada versi lebih baru dari yang terpasang. */

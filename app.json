@@ -2,7 +2,7 @@
   "expo": {
     "name": "DYRLIX",
     "slug": "dyrlix",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "default",
     "scheme": "dyrlix",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "com.dyrlix.player",
-      "versionCode": 8,
+      "versionCode": 9,
       "softwareKeyboardLayoutMode": "pan",
       "icon": "./assets/icon.png",
       "adaptiveIcon": {
@@ -77,7 +77,7 @@
     },
     "extra": {
       "router": {},
-      "updateManifestUrl": "https://cdn.jsdelivr.net/gh/dikydharmawan/dyrlixtv@gh-pages/update.json",
+      "updateManifestUrl": "https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/update.json",
       "eas": {
         "projectId": "0848ebf7-b052-4db2-b47c-fdd78e55cd90"
       }

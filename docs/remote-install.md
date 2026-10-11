@@ -27,7 +27,7 @@ Setiap perangkat bisa memperbarui sendiri APK-nya selama masih terhubung interne
      --notes "Playback lebih lancar, ukuran APK lebih kecil"
    ```
 
-   Manifest default: `https://github.com/dikydharmawan/dyrlixtv/raw/gh-pages/update.json`.
+   Manifest default: `https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/update.json`.
 
 **Cara manual / host sendiri:**
 1. Jalankan build rilis dengan EAS (profil `release`, output APK) — `dyrlix.apk`.
@@ -62,10 +62,10 @@ Setiap perangkat bisa memperbarui sendiri APK-nya selama masih terhubung interne
 1. Buka tab **Update** di DYRLIX.
 2. Isi URL `update.json` (perangkat menyimpannya; bisa juga diubah via
    `app.json` → `extra.updateManifestUrl` untuk default bawaan). Untuk hosting
-   gh-pages, pakai URL jsDelivr agar cache cepat segar:
+   gh-pages, pakai URL raw GitHub (pembaruan cepat & andal):
 
    ```
-   https://cdn.jsdelivr.net/gh/dikydharmawan/dyrlixtv@gh-pages/update.json
+   https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/update.json
    ```
 3. Tekan **Periksa Update** → bila ada versi baru, **Unduh & Pasang**.
 4. Installer sistem akan terbuka. Jika diminta, izinkan "Instal aplikasi tidak

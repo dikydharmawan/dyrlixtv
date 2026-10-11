@@ -103,6 +103,8 @@ git -C "$WORKTREE" commit -q -m "Rilis ${VERSION_NAME:-$VERSION_CODE} (versionCo
 git -C "$WORKTREE" push origin gh-pages
 
 echo
-echo "Selesai. Manifest self-updater (pakai jsDelivr agar cache cepat segar):"
+echo "Selesai. URL manifest self-updater (raw GitHub — pembaruan cepat & andal):"
+echo "  https://raw.githubusercontent.com/${SLUG}/gh-pages/update.json"
+echo "Cadangan via jsDelivr (bisa macet karena cache @branch):"
 echo "  https://cdn.jsdelivr.net/gh/${SLUG}@gh-pages/update.json"
 echo "  (cadangan GitHub: https://github.com/${SLUG}/raw/gh-pages/update.json )"
