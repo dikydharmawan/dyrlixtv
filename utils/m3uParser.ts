@@ -19,7 +19,12 @@ function parseAttributes(input: string): Record<string, string> {
   return attributes;
 }
 
-/** Menggabungkan header HTTP dari #EXTHTTP (JSON) atau #KODIPROP (|\u0080 dipisah "="). */
+/**
+ * Menggabungkan header HTTP dari:
+ * - `#EXTHTTP:` (JSON),
+ * - `#KODIPROP:` (dipisah `|`, tiap bagian `key=value`),
+ * - `#EXTVLCOPT:` (mis. `http-user-agent=...`, `http-referrer=...`, `http-origin=...`).
+ */
 function collectHeaders(pending: PendingChannel | null, line: string): PendingChannel | null {
   const base = pending ?? {};
   const merged: Record<string, string> = { ...(base.headers ?? {}) };
@@ -47,6 +52,17 @@ function collectHeaders(pending: PendingChannel | null, line: string): PendingCh
           const val = pair.slice(i + 1).trim();
           if (key && val) merged[key] = val;
         }
+      }
+    }
+  } else if (/^#EXTVLCOPT:/i.test(line)) {
+    const eq = line.indexOf('=');
+    if (eq >= 0) {
+      const key = line.slice('#EXTVLCOPT:'.length, eq).trim().toLowerCase();
+      const val = line.slice(eq + 1).trim();
+      if (val) {
+        if (key === 'http-user-agent') merged['User-Agent'] = val;
+        else if (key === 'http-referrer') merged['Referer'] = val;
+        else if (key === 'http-origin') merged['Origin'] = val;
       }
     }
   }
@@ -111,8 +127,12 @@ export function parseM3U(content: string, playlistId = 'playlist'): Channel[] {
       continue;
     }
 
-    // Direktif header stream (#EXTHTTP / #KODIPROP) dikumpulkan untuk channel berikutnya.
-    if (/^#EXTHTTP:/i.test(line) || /^#KODIPROP:/i.test(line)) {
+    // Direktif header stream (#EXTHTTP / #KODIPROP / #EXTVLCOPT) dikumpulkan untuk channel berikutnya.
+    if (
+      /^#EXTHTTP:/i.test(line) ||
+      /^#KODIPROP:/i.test(line) ||
+      /^#EXTVLCOPT:/i.test(line)
+    ) {
       pending = collectHeaders(pending, line);
       continue;
     }

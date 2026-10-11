@@ -1,3 +1,4 @@
+import { mergeStreamHeaders } from '@/constants/streamHeaders';
 import { isValidStreamUrl } from '@/utils/url';
 
 export type StreamCheck = 'ok' | 'dead' | 'network' | 'invalid';
@@ -8,39 +9,54 @@ export interface StreamCheckItem {
   headers?: Record<string, string>;
 }
 
-export interface StreamCheckResult {
-  id: string;
+export interface StreamCheckDetail {
   status: StreamCheck;
+  /** Kode HTTP bila server sempat menjawab (dipakai untuk pesan error/diagnostik). */
+  httpStatus?: number;
+}
+
+export interface StreamCheckResult extends StreamCheckDetail {
+  id: string;
 }
 
 /**
  * Pengecekan cepat ketersediaan stream.
  * Hanya 404/410 yang dianggap PASTI mati; 4xx lain (403/401) belum tentu
  * karena pemutar asli mungkin tetap bisa memutar dengan token.
+ * Header default selalu dikirim; header khusus channel menang.
  */
-export async function checkStream(
+export async function checkStreamDetail(
   url: string,
   timeoutMs = 8000,
   headers?: Record<string, string>,
-): Promise<StreamCheck> {
-  if (!isValidStreamUrl(url)) return 'invalid';
+): Promise<StreamCheckDetail> {
+  if (!isValidStreamUrl(url)) return { status: 'invalid' };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
       method: 'GET',
-      headers: { accept: '*/*', ...headers },
+      headers: mergeStreamHeaders(headers),
       signal: controller.signal,
     });
     // Status headers sudah cukup; hentikan unduhan body supaya hemat kuota.
     controller.abort();
-    if (res.status === 404 || res.status === 410) return 'dead';
-    return 'ok';
+    if (res.status === 404 || res.status === 410) return { status: 'dead', httpStatus: res.status };
+    return { status: 'ok', httpStatus: res.status };
   } catch {
-    return 'network';
+    return { status: 'network' };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Versi ringkas yang hanya mengembalikan status. */
+export async function checkStream(
+  url: string,
+  timeoutMs = 8000,
+  headers?: Record<string, string>,
+): Promise<StreamCheck> {
+  return (await checkStreamDetail(url, timeoutMs, headers)).status;
 }
 
 /** Cek banyak channel sekaligus dengan batas konkurensi (hindari akses berlebihan ke server). */
@@ -57,10 +73,8 @@ export async function checkStreams(
       const i = cursor;
       cursor += 1;
       const item = items[i];
-      results[i] = {
-        id: item.id,
-        status: await checkStream(item.url, timeoutMs, item.headers),
-      };
+      const detail = await checkStreamDetail(item.url, timeoutMs, item.headers);
+      results[i] = { id: item.id, ...detail };
     }
   };
 
@@ -69,21 +83,47 @@ export async function checkStreams(
   return results;
 }
 
-/** Terjemahkan pesan error mentah pemutar menjadi pesan yang ramah. */
-export function friendlyStreamError(raw: unknown): string | null {
-  const message = (raw as { message?: unknown } | null)?.message;
-  if (typeof message !== 'string' || !message) return null;
-  if (/404/.test(message)) {
+/** Deskripsi ramah untuk sebuah kode HTTP. */
+function describeStatus(code: number): string | null {
+  if (code === 404 || code === 410) {
     return 'Kanal tidak tersedia (HTTP 404) — tautan mati atau diblokir server.';
   }
-  if (/410/.test(message)) {
-    return 'Kanal sudah tidak tersedia (HTTP 410).';
+  if (code === 403) {
+    return 'Server menolak akses (HTTP 403) — channel ini kemungkinan butuh langganan/token atau memblokir hotlink.';
   }
-  if (/403/.test(message)) {
-    return 'Akses diblokir server (HTTP 403). Mungkin butuh izin/token.';
+  if (code === 451) {
+    return 'Channel diblokir (HTTP 451) — tidak tersedia untuk wilayah Anda.';
   }
-  if (/timed out|timeout|socket|econn|failed to connect|no route/i.test(message)) {
-    return 'Koneksi gagal — periksa jaringan Anda atau server stream.';
+  if (code >= 500) {
+    return `Server channel sedang bermasalah (HTTP ${code}). Coba lagi nanti.`;
+  }
+  if (code >= 400) {
+    return `Permintaan ditolak server (HTTP ${code}).`;
+  }
+  return null;
+}
+
+function detectStatus(message: string, httpStatus?: number): number | undefined {
+  if (typeof httpStatus === 'number') return httpStatus;
+  const match = message.match(/\b([45]\d\d)\b/);
+  return match ? Number(match[1]) : undefined;
+}
+
+/** Terjemahkan pesan error mentah pemutar menjadi pesan yang ramah. */
+export function friendlyStreamError(raw: unknown, httpStatus?: number): string | null {
+  const message = (raw as { message?: unknown } | null)?.message;
+  if (typeof message !== 'string') {
+    return typeof httpStatus === 'number' ? describeStatus(httpStatus) : null;
+  }
+
+  const code = detectStatus(message, httpStatus);
+  if (code) {
+    const described = describeStatus(code);
+    if (described) return described;
+  }
+
+  if (/timeout|timed out|network|failed to connect|unreachable|ENOTFOUND|ECONN|abort/i.test(message)) {
+    return 'Tidak dapat terhubung ke channel. Periksa koneksi internet atau tautan.';
   }
   return null;
 }

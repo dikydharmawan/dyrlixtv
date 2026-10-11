@@ -19,6 +19,7 @@ import { TVFocusGuide, tvPrefFocus } from '@/components/Tv';
 import { colors, fontSize, radius, spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
 import { loadPlaylistChannels } from '@/services/playlistLoader';
+import { getDeadLinks, setDeadLinks } from '@/services/deadLinks';
 import { getPlaylistById } from '@/services/playlistStorage';
 import type { Channel, Playlist } from '@/types';
 import { isPlaceholder, withGridPlaceholders } from '@/utils/grid';
@@ -32,6 +33,7 @@ export default function PlaylistDetailScreen() {
   const { columns, gutter, isTV } = useResponsive();
 
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
+  const [hideDead, setHideDead] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +60,8 @@ export default function PlaylistDetailScreen() {
   const refresh = useCallback(async () => {
     try {
       await load();
-      setDeadIds(new Set());
+      const dead = await getDeadLinks(playlistId);
+      setDeadIds(dead);
       setScanNote(null);
       setError(null);
     } catch (e) {
@@ -67,7 +70,7 @@ export default function PlaylistDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [load]);
+  }, [load, playlistId]);
 
   const handleScan = useCallback(async () => {
     if (channels.length === 0 || scanning) return;
@@ -83,10 +86,12 @@ export default function PlaylistDetailScreen() {
     let unknown = 0;
     for (const result of results) {
       if (result.status === 'dead') dead.add(result.id);
-      else if (result.status === 'network' || result.status === 'invalid') unknown += 1;
+      else if (result.status === 'network') unknown += 1;
+      if (result.status === 'invalid') unknown += 1;
     }
 
     setDeadIds(dead);
+    await setDeadLinks(playlistId, dead);
     setScanNote(
       dead.size === 0
         ? unknown > 0
@@ -97,7 +102,7 @@ export default function PlaylistDetailScreen() {
           : `${dead.size} channel mati (404) terdeteksi — tandai MATI.`,
     );
     setScanning(false);
-  }, [channels, scanning]);
+  }, [channels, scanning, playlistId]);
 
   useEffect(() => {
     let active = true;
@@ -120,13 +125,19 @@ export default function PlaylistDetailScreen() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return channels;
-    return channels.filter(
-      (channel) =>
-        channel.name.toLowerCase().includes(q) ||
-        (channel.group ?? '').toLowerCase().includes(q),
-    );
-  }, [channels, query]);
+    let list = channels;
+    if (q) {
+      list = list.filter(
+        (channel) =>
+          channel.name.toLowerCase().includes(q) ||
+          (channel.group ?? '').toLowerCase().includes(q),
+      );
+    }
+    if (hideDead) {
+      list = list.filter((channel) => !deadIds.has(channel.id));
+    }
+    return list;
+  }, [channels, query, hideDead, deadIds]);
 
   const data = useMemo(() => withGridPlaceholders(filtered, columns), [filtered, columns]);
 
@@ -216,6 +227,20 @@ export default function PlaylistDetailScreen() {
               onPress={handleScan}
               tvFocus={tvPrefFocus(true)}
             />
+            {deadIds.size > 0 ? (
+              <AppButton
+                title={
+                  hideDead
+                    ? `Tampilkan semua (${deadIds.size} mati)`
+                    : `Sembunyikan ${deadIds.size} channel mati`
+                }
+                icon={hideDead ? 'eye-outline' : 'eye-off-outline'}
+                variant="secondary"
+                fullWidth
+                onPress={() => setHideDead((value) => !value)}
+                tvFocus={tvPrefFocus(true)}
+              />
+            ) : null}
             {scanNote ? (
               <InfoBanner
                 variant={deadIds.size > 0 ? 'danger' : 'info'}

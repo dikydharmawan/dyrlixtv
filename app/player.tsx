@@ -1,15 +1,23 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEvent } from 'expo';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type PressableProps,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
+import { browserRetryHeaders, mergeStreamHeaders } from '@/constants/streamHeaders';
 import { colors, fontSize, radius, spacing } from '@/constants/theme';
 import { isTV, tvPrefFocus } from '@/components/Tv';
-import { checkStream, friendlyStreamError, type StreamCheck } from '@/utils/stream';
+import { checkStreamDetail, friendlyStreamError, type StreamCheckDetail } from '@/utils/stream';
 
 export default function PlayerScreen() {
   const router = useRouter();
@@ -19,9 +27,10 @@ export default function PlayerScreen() {
   const url = typeof params.url === 'string' ? params.url : '';
   const title = (typeof params.name === 'string' && params.name) || 'Siaran';
   const [backFocused, setBackFocused] = useState(false);
-  const [preCheck, setPreCheck] = useState<StreamCheck | null>(null);
+  const [preCheck, setPreCheck] = useState<StreamCheckDetail | null>(null);
+  const retriedRef = useRef(false);
 
-  const headers = useMemo(() => {
+  const channelHeaders = useMemo<Record<string, string> | undefined>(() => {
     const raw = typeof params.headers === 'string' ? params.headers : '';
     if (!raw) return undefined;
     try {
@@ -35,21 +44,24 @@ export default function PlayerScreen() {
     return undefined;
   }, [params.headers]);
 
+  const mergedHeaders = useMemo(() => mergeStreamHeaders(channelHeaders), [channelHeaders]);
+
   const source = useMemo(
-    () => (url ? { uri: url, headers } : null),
-    [url, headers],
+    () => (url ? { uri: url, headers: mergedHeaders } : null),
+    [url, mergedHeaders],
   );
 
   useEffect(() => {
     if (!url) return;
     let active = true;
-    void checkStream(url, 8000, headers).then((result) => {
+    retriedRef.current = false;
+    void checkStreamDetail(url, 8000, channelHeaders).then((result) => {
       if (active) setPreCheck(result);
     });
     return () => {
       active = false;
     };
-  }, [url, headers]);
+  }, [url, channelHeaders]);
 
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = false;
@@ -58,17 +70,29 @@ export default function PlayerScreen() {
 
   const { status, error } = useEvent(player, 'statusChange', { status: player.status });
 
-  const deadLink = preCheck === 'dead';
-  const isLoading =
-    Boolean(url) && (status === 'loading' || status === 'idle') && !deadLink;
-  const hasError = !url || status === 'error' || deadLink;
+  // Coba ulang sekali dengan header "browser" (UA + Referer asal) — banyak server
+  // menolak hotlink tanpa Referer, sehingga 403/404 bisa hilang setelah retry.
+  useEffect(() => {
+    if (status !== 'error' || !url) return;
+    if (retriedRef.current) return;
+    retriedRef.current = true;
+    const timer = setTimeout(() => {
+      player.replace({ uri: url, headers: browserRetryHeaders(url, channelHeaders) });
+      player.play();
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [status, url, channelHeaders, player]);
+
+  const preCheckDead = preCheck?.status === 'dead';
+  const isLoading = Boolean(url) && (status === 'loading' || status === 'idle');
+  // Pra-cek TIDAK lagi memblokir pemutaran; hanya jadi peringatan.
+  const hasError = !url || status === 'error';
+  const showWarning = Boolean(url) && preCheckDead && status !== 'error';
 
   const errorMessage = !url
     ? 'URL stream tidak valid atau tidak ditemukan.'
-    : deadLink
-      ? 'Kanal tidak tersedia (HTTP 404) — tautan mati atau diblokir server. Coba channel lain atau hapus dari playlist.'
-      : friendlyStreamError(error) ??
-        'Stream tidak dapat diputar. Periksa koneksi atau tautan.';
+    : friendlyStreamError(error, preCheckDead ? preCheck?.httpStatus : undefined) ??
+      'Stream tidak dapat diputar. Periksa koneksi atau tautan.';
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -80,11 +104,12 @@ export default function PlayerScreen() {
 
   const retry = useCallback(() => {
     if (!url) return;
+    retriedRef.current = false;
     setPreCheck(null);
-    void checkStream(url, 8000, headers).then(setPreCheck);
-    player.replace({ uri: url, headers });
+    void checkStreamDetail(url, 8000, channelHeaders).then(setPreCheck);
+    player.replace({ uri: url, headers: mergedHeaders });
     player.play();
-  }, [player, url, headers]);
+  }, [player, url, channelHeaders, mergedHeaders]);
 
   return (
     <View style={styles.container}>
@@ -99,7 +124,7 @@ export default function PlayerScreen() {
         />
       ) : null}
 
-      {isLoading ? (
+      {isLoading && !hasError ? (
         <View style={styles.overlayCenter} pointerEvents="none">
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Memuat siaran…</Text>
@@ -111,6 +136,17 @@ export default function PlayerScreen() {
           <Ionicons name="cloud-offline-outline" size={64} color={colors.danger} />
           <Text style={styles.errorTitle}>Gagal memuat stream</Text>
           <Text style={styles.errorMessage}>{errorMessage}</Text>
+          {url ? (
+            <View style={styles.diagnostics}>
+              <Text style={styles.diagnosticLabel}>URL</Text>
+              <Text selectable style={styles.diagnosticValue}>
+                {url}
+              </Text>
+              {typeof preCheck?.httpStatus === 'number' ? (
+                <Text style={styles.diagnosticValue}>Kode HTTP: {preCheck.httpStatus}</Text>
+              ) : null}
+            </View>
+          ) : null}
           <View style={styles.errorActions}>
             {url ? <AppButton title="Coba Lagi" icon="refresh" onPress={retry} /> : null}
             <AppButton
@@ -120,6 +156,15 @@ export default function PlayerScreen() {
               onPress={handleBack}
             />
           </View>
+        </View>
+      ) : null}
+
+      {showWarning ? (
+        <View style={styles.warningBanner}>
+          <Ionicons name="alert-circle-outline" size={18} color={colors.accent} />
+          <Text style={styles.warningText}>
+            Tautan ini kemungkinan mati (HTTP {preCheck?.httpStatus ?? 404}). Mencoba tetap memutar…
+          </Text>
         </View>
       ) : null}
 
@@ -175,10 +220,49 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  diagnostics: {
+    width: '100%',
+    maxWidth: 560,
+    gap: spacing.xs,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  diagnosticLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  diagnosticValue: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+  },
   errorActions: {
     flexDirection: 'row',
     gap: spacing.md,
     marginTop: spacing.sm,
+  },
+  warningBanner: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  warningText: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSize.sm,
   },
   topBar: {
     position: 'absolute',

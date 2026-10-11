@@ -11,9 +11,13 @@ import { Screen } from '@/components/Screen';
 import { TVFocusGuide } from '@/components/Tv';
 import { colors, fontSize, spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
+import { getDeadLinks, setDeadLinks } from '@/services/deadLinks';
 import { loadDefaultChannels } from '@/services/defaultPlaylist';
 import type { Channel } from '@/types';
 import { isPlaceholder, withGridPlaceholders } from '@/utils/grid';
+import { checkStreams } from '@/utils/stream';
+
+const DEFAULT_CHANNELS_KEY = 'playlist-bawaan';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -21,26 +25,64 @@ export default function HomeScreen() {
 
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deadIds, setDeadIds] = useState<Set<string>>(new Set());
+  const [hideDead, setHideDead] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState<string | null>(null);
 
   const reload = useCallback(async (force = true) => {
     setLoading(true);
     setChannels([]);
     const data = await loadDefaultChannels(force);
     setChannels(data);
+    setScanNote(null);
+    setDeadIds(await getDeadLinks(DEFAULT_CHANNELS_KEY));
     setLoading(false);
   }, []);
 
   useEffect(() => {
     let active = true;
-    void loadDefaultChannels(false).then((data) => {
+    void loadDefaultChannels(false).then(async (data) => {
       if (!active) return;
       setChannels(data);
+      setDeadIds(await getDeadLinks(DEFAULT_CHANNELS_KEY));
       setLoading(false);
     });
     return () => {
       active = false;
     };
   }, []);
+
+  const handleScan = useCallback(async () => {
+    if (channels.length === 0 || scanning) return;
+    setScanning(true);
+    setDeadIds(new Set());
+    setScanNote(null);
+
+    const results = await checkStreams(
+      channels.map((channel) => ({ id: channel.id, url: channel.url, headers: channel.headers })),
+    );
+
+    const dead = new Set<string>();
+    let unknown = 0;
+    for (const result of results) {
+      if (result.status === 'dead') dead.add(result.id);
+      else if (result.status === 'network' || result.status === 'invalid') unknown += 1;
+    }
+
+    setDeadIds(dead);
+    await setDeadLinks(DEFAULT_CHANNELS_KEY, dead);
+    setScanNote(
+      dead.size === 0
+        ? unknown > 0
+          ? `Semua channel tampak aktif (${unknown} tak dapat diuji — periksa koneksi).`
+          : 'Semua channel dapat diakses. Tidak ada link mati.'
+        : unknown > 0
+          ? `${dead.size} channel mati (404) terdeteksi, ${unknown} tak dapat diuji karena jaringan.`
+          : `${dead.size} channel mati (404) terdeteksi — tandai MATI.`,
+    );
+    setScanning(false);
+  }, [channels, scanning]);
 
   const openChannel = useCallback(
     (channel: Channel) => {
@@ -57,7 +99,15 @@ export default function HomeScreen() {
     [router],
   );
 
-  const data = useMemo(() => withGridPlaceholders(channels, columns), [channels, columns]);
+  const visibleChannels = useMemo(
+    () => (hideDead ? channels.filter((channel) => !deadIds.has(channel.id)) : channels),
+    [channels, hideDead, deadIds],
+  );
+
+  const data = useMemo(
+    () => withGridPlaceholders(visibleChannels, columns),
+    [visibleChannels, columns],
+  );
 
   const horizontalPadding = isTV ? spacing.xxl : spacing.lg;
 
@@ -74,7 +124,12 @@ export default function HomeScreen() {
             isPlaceholder(item) ? (
               <View style={styles.placeholder} />
             ) : (
-              <ChannelCard channel={item} onPress={openChannel} first={index === 0} />
+              <ChannelCard
+                channel={item}
+                onPress={openChannel}
+                first={index === 0}
+                dead={deadIds.has(item.id)}
+              />
             )
           }
           columnWrapperStyle={columns > 1 ? { gap: gutter } : undefined}
@@ -119,6 +174,36 @@ export default function HomeScreen() {
                   />
                 ) : null}
               </View>
+
+              <View style={styles.actions}>
+                <AppButton
+                  title={scanning ? 'Memeriksa…' : 'Periksa Channel Mati'}
+                  icon={scanning ? undefined : 'pulse'}
+                  loading={scanning}
+                  disabled={scanning || channels.length === 0}
+                  fullWidth
+                  onPress={handleScan}
+                />
+                {deadIds.size > 0 ? (
+                  <AppButton
+                    title={
+                      hideDead
+                        ? `Tampilkan semua (${deadIds.size} mati)`
+                        : `Sembunyikan ${deadIds.size} channel mati`
+                    }
+                    icon={hideDead ? 'eye-outline' : 'eye-off-outline'}
+                    variant="secondary"
+                    fullWidth
+                    onPress={() => setHideDead((value) => !value)}
+                  />
+                ) : null}
+                {scanNote ? (
+                  <InfoBanner
+                    variant={deadIds.size > 0 ? 'danger' : 'info'}
+                    message={scanNote}
+                  />
+                ) : null}
+              </View>
             </View>
           }
           ListEmptyComponent={
@@ -140,7 +225,11 @@ export default function HomeScreen() {
               <View style={styles.footer}>
                 <InfoBanner
                   variant="info"
-                  message={`${channels.length} channel dari playlist bawaan. Ketuk ikon segarkan untuk mengambil daftar terbaru tanpa update aplikasi.`}
+                  message={
+                    hideDead && deadIds.size > 0
+                      ? `Menampilkan ${visibleChannels.length} channel aktif dari ${channels.length} (${deadIds.size} disembunyikan karena mati).`
+                      : `${channels.length} channel dari playlist bawaan. Ketuk ikon segarkan untuk mengambil daftar terbaru tanpa update aplikasi.`
+                  }
                 />
               </View>
             ) : null
@@ -194,6 +283,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  actions: {
+    gap: spacing.md,
   },
   sectionTitle: {
     color: colors.text,
