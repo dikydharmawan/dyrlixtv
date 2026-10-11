@@ -1,8 +1,8 @@
 {
   "packageName": "com.dyrlix.player",
-  "versionCode": 4,
-  "versionName": "1.0.2",
-  "apkUrl": "https://github.com/dikydharmawan/dyrlixtv/raw/gh-pages/dyrlix-1.0.2.apk",
-  "notes": "Perbaikan: error jelas untuk link mati, dukungan header dens.tv, playlist bawaan dhanytv",
-  "publishedAt": "2026-10-11T15:18:04.935Z"
+  "versionCode": 5,
+  "versionName": "1.0.3",
+  "apkUrl": "https://github.com/dikydharmawan/dyrlixtv/raw/gh-pages/dyrlix-1.0.3.apk",
+  "notes": "Ukuran APK jauh lebih kecil (arm64), playback lebih lancar",
+  "publishedAt": "2026-10-11T15:55:16.458Z"
 }
