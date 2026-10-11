@@ -1,8 +1,8 @@
 {
   "packageName": "com.dyrlix.player",
-  "versionCode": 7,
-  "versionName": "1.0.5",
-  "apkUrl": "https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/dyrlix-1.0.5.apk",
-  "notes": "Perbaikan tempel teks M3U: dukung akhir baris CR, pemisah U+2028, BOM/karakter tak terlihat, dan kutip keriting",
-  "publishedAt": "2026-10-11T16:51:07.843Z"
+  "versionCode": 8,
+  "versionName": "1.0.6",
+  "apkUrl": "https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/dyrlix-1.0.6.apk",
+  "notes": "Tambah mode Pilih File: impor playlist M3U langsung dari penyimpanan perangkat",
+  "publishedAt": "2026-10-11T17:17:41.537Z"
 }
