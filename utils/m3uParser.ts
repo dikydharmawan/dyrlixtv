@@ -2,6 +2,28 @@ import type { Channel } from '@/types';
 
 const ATTRIBUTE_PATTERN = /([A-Za-z0-9_-]+)="([^"]*)"/g;
 
+/**
+ * Karakter tak terlihat yang sering ikut terikut saat menyalin teks dari web:
+ * BOM, zero-width space/joiner, penanda arah (RTL/LTR), dan sejenisnya.
+ * Karakter ini bisa menempel di awal baris sehingga `#EXTINF`/URL tak terdeteksi.
+ */
+const INVISIBLE_CHARS = /[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g;
+
+/**
+ * Menormalkan teks M3U yang ditempel:
+ * - BOM di awal,
+ * - kutip "keriting" (dari web) → kutip lurus,
+ * - semua jenis akhir baris (CR, CRLF, LF, U+2028, U+2029) → LF,
+ * - karakter tak terlihat dibuang.
+ */
+function normalizeContent(content: string): string {
+  return content
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u2028\u2029]/g, '\n')
+    .replace(INVISIBLE_CHARS, '');
+}
+
 interface PendingChannel {
   name?: string;
   logo?: string | null;
@@ -104,7 +126,7 @@ function cleanDisplayName(value: string): string {
 export function parseM3U(content: string, playlistId = 'playlist'): Channel[] {
   if (!content || typeof content !== 'string') return [];
 
-  const lines = content.split(/\r?\n/);
+  const lines = normalizeContent(content).split('\n');
   const channels: Channel[] = [];
   let pending: PendingChannel | null = null;
   let index = 0;
@@ -140,8 +162,9 @@ export function parseM3U(content: string, playlistId = 'playlist'): Channel[] {
     // Lewati baris komentar/direktif lain (#EXTM3U, #EXTVLCOPT, dsb).
     if (line.startsWith('#')) continue;
 
-    // Baris dianggap URL stream hanya jika memiliki skema protokol.
-    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(line)) continue;
+    // Baris dianggap URL stream jika mengandung skema protokol (`://`).
+    // Tidak harus di awal baris agar tahan terhadap sisa karakter aneh.
+    if (!line.includes('://')) continue;
 
     channels.push({
       id: `${playlistId}-${index}`,
