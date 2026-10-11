@@ -2,7 +2,7 @@
   "expo": {
     "name": "DYRLIX",
     "slug": "dyrlix",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "default",
     "scheme": "dyrlix",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "com.dyrlix.player",
-      "versionCode": 7,
+      "versionCode": 8,
       "softwareKeyboardLayoutMode": "pan",
       "icon": "./assets/icon.png",
       "adaptiveIcon": {

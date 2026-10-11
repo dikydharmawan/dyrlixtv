@@ -1,5 +1,7 @@
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -15,6 +17,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { InfoBanner } from '@/components/InfoBanner';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { tvPrefFocus } from '@/components/Tv';
 import { colors, fontSize, radius, spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
 import { addPlaylist } from '@/services/playlistStorage';
@@ -22,32 +25,66 @@ import type { PlaylistType } from '@/types';
 import { parseM3U } from '@/utils/m3uParser';
 import { isValidStreamUrl } from '@/utils/url';
 
-type Mode = PlaylistType;
+type InputMode = PlaylistType | 'file';
 
 export default function AddPlaylistScreen() {
   const router = useRouter();
   const { isTV } = useResponsive();
 
-  const [mode, setMode] = useState<Mode>('url');
+  const [mode, setMode] = useState<InputMode>('url');
   const [url, setUrl] = useState('');
   const [content, setContent] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [picking, setPicking] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const detectedChannels = useMemo(() => {
-    if (mode !== 'content' || !content.trim()) return 0;
+    if (mode === 'url' || !content.trim()) return 0;
     return parseM3U(content, 'preview').length;
   }, [mode, content]);
+
+  const handlePickFile = useCallback(async () => {
+    setError(null);
+    setSuccess(null);
+    try {
+      setPicking(true);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled || result.assets.length === 0) return;
+
+      const asset = result.assets[0];
+      const text = asset.file
+        ? await asset.file.text()
+        : await FileSystem.readAsStringAsync(asset.uri);
+      setContent(text);
+      setFileName(asset.name || 'playlist.m3u');
+      if (!text.trim()) {
+        setError('File tersebut kosong atau tidak dapat dibaca.');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal membaca file. Coba file lain.');
+    } finally {
+      setPicking(false);
+    }
+  }, []);
 
   const handleSave = async () => {
     setError(null);
     setSuccess(null);
 
-    if (mode === 'content') {
+    if (mode === 'content' || mode === 'file') {
       if (!content.trim()) {
-        setError('Isi teks M3U tidak boleh kosong.');
+        setError(
+          mode === 'file'
+            ? 'Pilih file M3U terlebih dahulu.'
+            : 'Isi teks M3U tidak boleh kosong.',
+        );
         return;
       }
     } else {
@@ -64,10 +101,16 @@ export default function AddPlaylistScreen() {
 
     setSaving(true);
     try {
-      const playlist = await addPlaylist({ mode, url, content, name });
+      const playlist = await addPlaylist({
+        mode: mode === 'url' ? 'url' : 'content',
+        url,
+        content,
+        name,
+      });
       setSuccess(`Playlist "${playlist.name}" berhasil disimpan.`);
       setUrl('');
       setContent('');
+      setFileName('');
       setName('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal menyimpan playlist.');
@@ -94,7 +137,8 @@ export default function AddPlaylistScreen() {
           <SegmentedControl
             options={[
               { key: 'url', label: 'Tautan URL' },
-              { key: 'content', label: 'Tempel Teks M3U' },
+              { key: 'content', label: 'Tempel Teks' },
+              { key: 'file', label: 'Pilih File' },
             ]}
             value={mode}
             onChange={setMode}
@@ -128,6 +172,43 @@ export default function AddPlaylistScreen() {
               <InfoBanner
                 variant="info"
                 message="Mode ini tidak membutuhkan akses jaringan, sehingga aman dari blokir CORS dan langsung bisa dibuka di Web, HP, maupun Android TV."
+              />
+            </>
+          ) : mode === 'file' ? (
+            <>
+              <View style={styles.field}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.label}>File M3U dari Perangkat</Text>
+                  {detectedChannels > 0 ? (
+                    <Text style={styles.detected}>Terbaca {detectedChannels} channel</Text>
+                  ) : null}
+                </View>
+                <AppButton
+                  title={content ? fileName || 'File dipilih' : 'Pilih File M3U…'}
+                  icon={content ? 'document-text-outline' : 'folder-open-outline'}
+                  variant="secondary"
+                  large
+                  fullWidth
+                  loading={picking}
+                  onPress={handlePickFile}
+                  tvFocus={tvPrefFocus(true)}
+                />
+                {content ? (
+                  <View style={styles.filePreview}>
+                    <Text style={styles.filePreviewLine} numberOfLines={5}>
+                      {content.slice(0, 240).trim()}
+                    </Text>
+                    <Text style={styles.filePreviewHint}>
+                      {detectedChannels > 0
+                        ? `${detectedChannels} channel siap disimpan. Tekan "Pilih File M3U…" untuk mengganti.`
+                        : 'File terbaca, tetapi tidak ada channel yang dikenali. Pastikan format M3U benar.'}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <InfoBanner
+                variant="info"
+                message="Pilih file .m3u/.m3u8 dari unduhan, flashdisk, atau penyimpanan perangkat. Isinya dibaca lokal tanpa jaringan, jadi aman dari blokir CORS."
               />
             </>
           ) : (
@@ -247,5 +328,23 @@ const styles = StyleSheet.create({
     minHeight: 220,
     fontFamily: Platform.select({ android: 'monospace', ios: 'Menlo', default: 'monospace' }),
     lineHeight: 22,
+  },
+  filePreview: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  filePreviewLine: {
+    color: colors.textMuted,
+    fontFamily: Platform.select({ android: 'monospace', ios: 'Menlo', default: 'monospace' }),
+    fontSize: fontSize.xs,
+    lineHeight: 18,
+  },
+  filePreviewHint: {
+    color: colors.text,
+    fontSize: fontSize.sm,
   },
 });
