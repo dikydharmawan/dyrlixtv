@@ -1,0 +1,79 @@
+{
+  "expo": {
+    "name": "DYRLIX",
+    "slug": "dyrlix",
+    "version": "1.0.0",
+    "orientation": "default",
+    "scheme": "dyrlix",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0F172A",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dyrlix.player"
+    },
+    "android": {
+      "package": "com.dyrlix.player",
+      "softwareKeyboardLayoutMode": "pan",
+      "icon": "./assets/icon.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F172A"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0F172A",
+          "image": "./assets/splash-icon.png",
+          "dark": {
+            "backgroundColor": "#0F172A",
+            "image": "./assets/splash-icon.png"
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
+        "@react-native-tvos/config-tv",
+        {
+          "isTV": true,
+          "removeFlipperOnAndroid": true,
+          "androidTVBanner": "./assets/tv_banner.png",
+          "androidTVIcon": "./assets/icon.png"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0848ebf7-b052-4db2-b47c-fdd78e55cd90"
+      }
+    },
+    "owner": "dikydharmawan1219"
+  }
+}
