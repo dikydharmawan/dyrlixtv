@@ -1,0 +1,18 @@
+# Daftar perangkat DYRLIX — isi IP Tailscale (100.x.y.z) tiap TV/STB.
+#
+# Aturan:
+#   - Satu perangkat per baris.
+#   - Baris diawali "#" = komentar (diabaikan).
+#   - Boleh diakhiri komentar "#" setelah IP untuk nama perangkat.
+#   - Port default 5555; bisa ditimpa dengan format IP:PORT.
+#
+# Contoh:
+# 100.100.1.11    # TV Ruang Tamu  — rumah A
+# 100.100.1.12    # STB Kamar Tidor – rumah A
+# 100.100.2.21    # TV Ruang Keluarga – rumah B
+#
+# (10 slot kosong siap diisi)
+
+100.100.1.11
+100.100.1.12
+100.100.2.21
