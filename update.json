@@ -1,8 +1,8 @@
 {
   "packageName": "com.dyrlix.player",
-  "versionCode": 3,
-  "versionName": "1.0.1",
-  "apkUrl": "https://github.com/dikydharmawan/dyrlixtv/raw/gh-pages/dyrlix-1.0.1.apk",
-  "notes": "Tes self-updater lintas jaringan (v1.0.1)",
-  "publishedAt": "2026-10-11T14:18:44.295Z"
+  "versionCode": 4,
+  "versionName": "1.0.2",
+  "apkUrl": "https://github.com/dikydharmawan/dyrlixtv/raw/gh-pages/dyrlix-1.0.2.apk",
+  "notes": "Perbaikan: error jelas untuk link mati, dukungan header dens.tv, playlist bawaan dhanytv",
+  "publishedAt": "2026-10-11T15:18:04.935Z"
 }
