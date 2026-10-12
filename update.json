@@ -1,8 +1,8 @@
 {
   "packageName": "com.dyrlix.player",
-  "versionCode": 9,
-  "versionName": "1.0.7",
-  "apkUrl": "https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/dyrlix-1.0.7.apk",
-  "notes": "Pembaruan otomatis lebih andal (fallback raw GitHub), plus mode Pilih File menyimpan/memuat M3U dari perangkat",
-  "publishedAt": "2026-10-11T17:48:50.712Z"
+  "versionCode": 10,
+  "versionName": "1.0.8",
+  "apkUrl": "https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/dyrlix-1.0.8.apk",
+  "notes": "Filter kategori channel + playlist default iptv-org",
+  "publishedAt": "2026-10-12T02:51:49.150Z"
 }
