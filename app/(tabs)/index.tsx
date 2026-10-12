@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { IconButton } from '@/components/IconButton';
 import { InfoBanner } from '@/components/InfoBanner';
 import { Screen } from '@/components/Screen';
+import { SearchBar } from '@/components/SearchBar';
 import { TVFocusGuide } from '@/components/Tv';
 import { colors, fontSize, spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -29,6 +30,7 @@ export default function HomeScreen() {
   const [deadIds, setDeadIds] = useState<Set<string>>(new Set());
   const [hideDead, setHideDead] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState<string | null>(null);
 
@@ -116,11 +118,19 @@ export default function HomeScreen() {
     if (activeGroup) {
       list = list.filter((channel) => (channel.group ?? 'Umum') === activeGroup);
     }
+    const term = query.trim().toLowerCase();
+    if (term) {
+      list = list.filter(
+        (channel) =>
+          channel.name.toLowerCase().includes(term) ||
+          (channel.group ?? '').toLowerCase().includes(term),
+      );
+    }
     if (hideDead) {
       list = list.filter((channel) => !deadIds.has(channel.id));
     }
     return list;
-  }, [channels, activeGroup, hideDead, deadIds]);
+  }, [channels, activeGroup, query, hideDead, deadIds]);
 
   const data = useMemo(
     () => withGridPlaceholders(visibleChannels, columns),
@@ -129,15 +139,32 @@ export default function HomeScreen() {
 
   const horizontalPadding = isTV ? spacing.xxl : spacing.lg;
 
+  const filterNote = useMemo(() => {
+    const term = query.trim();
+    if (term) {
+      return `Menampilkan ${visibleChannels.length} channel untuk pencarian "${term}" dari ${channels.length}.`;
+    }
+    if (activeGroup) {
+      return `Menampilkan ${visibleChannels.length} channel kategori "${activeGroup}" dari ${channels.length}.`;
+    }
+    if (hideDead && deadIds.size > 0) {
+      return `Menampilkan ${visibleChannels.length} channel aktif dari ${channels.length} (${deadIds.size} disembunyikan karena mati).`;
+    }
+    return `${channels.length} channel dari playlist bawaan. Ketuk ikon segarkan untuk mengambil daftar terbaru tanpa update aplikasi.`;
+  }, [query, activeGroup, visibleChannels.length, channels.length, hideDead, deadIds.size]);
+
   return (
     <Screen>
-      {categories.length > 1 ? (
-        <View style={{ paddingHorizontal: horizontalPadding }}>
-          <CategoryFilter
-            categories={categories}
-            selected={activeGroup}
-            onSelect={setSelectedGroup}
-          />
+      {channels.length > 0 ? (
+        <View style={[styles.filters, { paddingHorizontal: horizontalPadding }]}>
+          <SearchBar value={query} onChangeText={setQuery} />
+          {categories.length > 1 ? (
+            <CategoryFilter
+              categories={categories}
+              selected={activeGroup}
+              onSelect={setSelectedGroup}
+            />
+          ) : null}
         </View>
       ) : null}
       <TVFocusGuide style={styles.focus}>
@@ -241,12 +268,14 @@ export default function HomeScreen() {
               </View>
             ) : channels.length > 0 ? (
               <EmptyState
-                icon="filter-outline"
-                title="Tidak ada channel"
+                icon="search-outline"
+                title="Tidak ditemukan"
                 description={
-                  activeGroup
-                    ? `Tidak ada channel pada kategori "${activeGroup}". Coba pilih kategori lain.`
-                    : 'Tidak ada channel yang ditampilkan. Coba ubah filter Anda.'
+                  query.trim()
+                    ? `Tidak ada channel yang cocok dengan "${query.trim()}". Coba kata kunci lain.`
+                    : activeGroup
+                      ? `Tidak ada channel pada kategori "${activeGroup}". Coba pilih kategori lain.`
+                      : 'Tidak ada channel yang ditampilkan. Coba ubah filter Anda.'
                 }
               />
             ) : (
@@ -262,13 +291,7 @@ export default function HomeScreen() {
               <View style={styles.footer}>
                 <InfoBanner
                   variant="info"
-                  message={
-                    activeGroup
-                      ? `Menampilkan ${visibleChannels.length} channel kategori "${activeGroup}" dari ${channels.length}.`
-                      : hideDead && deadIds.size > 0
-                        ? `Menampilkan ${visibleChannels.length} channel aktif dari ${channels.length} (${deadIds.size} disembunyikan karena mati).`
-                        : `${channels.length} channel dari playlist bawaan. Ketuk ikon segarkan untuk mengambil daftar terbaru tanpa update aplikasi.`
-                  }
+                  message={filterNote}
                 />
               </View>
             ) : null
@@ -292,6 +315,9 @@ const styles = StyleSheet.create({
   loadingText: {
     color: colors.textMuted,
     fontSize: fontSize.sm,
+  },
+  filters: {
+    paddingTop: spacing.sm,
   },
   listContent: {
     paddingTop: spacing.lg,
