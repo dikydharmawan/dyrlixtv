@@ -4,7 +4,7 @@ import { DEFAULT_CHANNELS, DEFAULT_PLAYLIST_URL } from '@/constants/channels';
 import type { Channel } from '@/types';
 import { parseM3U } from '@/utils/m3uParser';
 
-const CACHE_KEY = '@iptv_player/default_playlist:v1';
+const CACHE_KEY = '@iptv_player/default_playlist:v2';
 /** Umur cache: 30 menit sebelum mencoba menyegarkan dari jaringan. */
 const STALE_MS = 30 * 60 * 1000;
 
