@@ -27,7 +27,7 @@ const TVRI_HLS = 'https://ott-balancer.tvri.go.id/live/eds';
  * Dapat diperbarui tanpa update aplikasi: cukup ubah isi file di repo GitHub.
  */
 export const DEFAULT_PLAYLIST_URL =
-  'https://raw.githubusercontent.com/dhasap/dhanytv/main/dhanytv.m3u';
+  'https://iptv-org.github.io/iptv/index.m3u';
 
 export const DEFAULT_CHANNELS: Channel[] = [
   {

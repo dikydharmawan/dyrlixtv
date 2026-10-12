@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
+import { CategoryFilter } from '@/components/CategoryFilter';
 import { ChannelCard } from '@/components/ChannelCard';
 import { EmptyState } from '@/components/EmptyState';
 import { IconButton } from '@/components/IconButton';
@@ -27,6 +28,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [deadIds, setDeadIds] = useState<Set<string>>(new Set());
   const [hideDead, setHideDead] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState<string | null>(null);
 
@@ -99,10 +101,26 @@ export default function HomeScreen() {
     [router],
   );
 
-  const visibleChannels = useMemo(
-    () => (hideDead ? channels.filter((channel) => !deadIds.has(channel.id)) : channels),
-    [channels, hideDead, deadIds],
-  );
+  const categories = useMemo(() => {
+    const groups = new Set<string>();
+    for (const channel of channels) {
+      groups.add(channel.group ?? 'Umum');
+    }
+    return Array.from(groups).sort((a, b) => a.localeCompare(b));
+  }, [channels]);
+
+  const activeGroup = selectedGroup && categories.includes(selectedGroup) ? selectedGroup : null;
+
+  const visibleChannels = useMemo(() => {
+    let list = channels;
+    if (activeGroup) {
+      list = list.filter((channel) => (channel.group ?? 'Umum') === activeGroup);
+    }
+    if (hideDead) {
+      list = list.filter((channel) => !deadIds.has(channel.id));
+    }
+    return list;
+  }, [channels, activeGroup, hideDead, deadIds]);
 
   const data = useMemo(
     () => withGridPlaceholders(visibleChannels, columns),
@@ -113,6 +131,15 @@ export default function HomeScreen() {
 
   return (
     <Screen>
+      {categories.length > 1 ? (
+        <View style={{ paddingHorizontal: horizontalPadding }}>
+          <CategoryFilter
+            categories={categories}
+            selected={activeGroup}
+            onSelect={setSelectedGroup}
+          />
+        </View>
+      ) : null}
       <TVFocusGuide style={styles.focus}>
         <FlatList
           key={`channels-${columns}`}
@@ -143,7 +170,7 @@ export default function HomeScreen() {
                 <Text
                   style={[styles.heroTitle, { fontSize: isTV ? fontSize.hero : fontSize.xxl }]}
                 >
-                  IPTV Player
+                  DYRLIX TV
                 </Text>
                 <Text style={styles.heroSubtitle}>
                   Tonton channel favorit Anda dalam tampilan gelap yang nyaman di HP, Web, dan
@@ -212,6 +239,16 @@ export default function HomeScreen() {
                 <ActivityIndicator size="large" color={colors.primary} />
                 <Text style={styles.loadingText}>Memuat channel bawaan…</Text>
               </View>
+            ) : channels.length > 0 ? (
+              <EmptyState
+                icon="filter-outline"
+                title="Tidak ada channel"
+                description={
+                  activeGroup
+                    ? `Tidak ada channel pada kategori "${activeGroup}". Coba pilih kategori lain.`
+                    : 'Tidak ada channel yang ditampilkan. Coba ubah filter Anda.'
+                }
+              />
             ) : (
               <EmptyState
                 icon="cloud-offline-outline"
@@ -226,9 +263,11 @@ export default function HomeScreen() {
                 <InfoBanner
                   variant="info"
                   message={
-                    hideDead && deadIds.size > 0
-                      ? `Menampilkan ${visibleChannels.length} channel aktif dari ${channels.length} (${deadIds.size} disembunyikan karena mati).`
-                      : `${channels.length} channel dari playlist bawaan. Ketuk ikon segarkan untuk mengambil daftar terbaru tanpa update aplikasi.`
+                    activeGroup
+                      ? `Menampilkan ${visibleChannels.length} channel kategori "${activeGroup}" dari ${channels.length}.`
+                      : hideDead && deadIds.size > 0
+                        ? `Menampilkan ${visibleChannels.length} channel aktif dari ${channels.length} (${deadIds.size} disembunyikan karena mati).`
+                        : `${channels.length} channel dari playlist bawaan. Ketuk ikon segarkan untuk mengambil daftar terbaru tanpa update aplikasi.`
                   }
                 />
               </View>
