@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useState, type ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -85,7 +86,11 @@ export function SideNav() {
     >
       <View style={[styles.brand, !expanded && styles.brandNarrow]}>
         <View style={styles.logoBadge}>
-          <Ionicons name="tv" size={isTV ? 30 : 24} color={colors.background} />
+          <Image
+            source={require('../assets/icon.png')}
+            style={styles.logoBadgeImage}
+            contentFit="contain"
+          />
         </View>
         {expanded ? (
           <View style={styles.brandTextWrap}>
@@ -214,6 +219,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  logoBadgeImage: {
+    width: '100%',
+    height: '100%',
   },
   brandTextWrap: {
     flexShrink: 1,

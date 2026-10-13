@@ -28,8 +28,8 @@ export function getInstalledVersion(): { versionName: string | null; versionCode
   const raw = Application.nativeBuildVersion;
   const versionCode = raw ? Number.parseInt(raw, 10) : Number.NaN;
   return {
-    versionName: Application.nativeApplicationVersion,
-    versionCode: Number.isFinite(versionCode) ? versionCode : null,
+    versionName: Application.nativeApplicationVersion ?? (Constants.expoConfig?.version ?? '1.0.9'),
+    versionCode: Number.isFinite(versionCode) ? versionCode : (Constants.expoConfig?.android?.versionCode ?? 11),
   };
 }
 
