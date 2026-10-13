@@ -9,6 +9,8 @@ export interface Channel {
   logo?: string | null;
   /** Group/category dari atribut group-title. */
   group?: string;
+  /** ID EPG (tvg-id) untuk mencocokkan jadwal tayang pada guide XMLTV. */
+  tvgId?: string;
   /** Menandai channel contoh/demo (bukan siaran resmi). */
   isDemo?: boolean;
   /** Header HTTP khusus untuk stream (mis. dari #EXTHTTP/#KODIPROP di M3U). */

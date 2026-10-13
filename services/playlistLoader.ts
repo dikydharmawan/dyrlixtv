@@ -1,39 +1,25 @@
 import type { Channel, Playlist } from '@/types';
-import { parseM3U } from '@/utils/m3uParser';
+import { extractEpgUrl, parseM3U } from '@/utils/m3uParser';
 
 const FETCH_TIMEOUT_MS = 20000;
 
-/**
- * Titik masuk untuk memuat channel dari sebuah Playlist.
- * - `type === 'content'`  → parse teks yang ditempel langsung (bebas CORS).
- * - `type === 'url'`      → unduh file M3U/M3U8 lalu parse.
- */
-export async function loadPlaylistChannels(playlist: Playlist): Promise<Channel[]> {
-  if (playlist.type === 'content' && playlist.content) {
-    const channels = parseM3U(playlist.content, playlist.id);
-    if (channels.length === 0) {
-      throw new Error('Playlist tidak berisi channel yang valid.');
-    }
-    return channels;
-  }
-
-  return fetchPlaylistChannels(playlist.id, playlist.url);
+export interface PlaylistData {
+  channels: Channel[];
+  /** URL guide EPG (XMLTV) dari header `x-tvg-url`, bila ada. */
+  epgUrl: string | null;
 }
 
-/**
- * Mengunduh file M3U/M3U8 dari URL lalu mengubahnya menjadi daftar Channel.
- *
- * Catatan Web: sebagian server tidak mengizinkan permintaan lintas domain (CORS),
- * sehingga pemuatan playlist bisa gagal di browser. Gunakan mode "Tempel Teks M3U"
- * untuk playlist yang diblokir, atau sekadar buka playlist di Android/iOS.
- */
-export async function fetchPlaylistChannels(
-  playlistId: string,
-  url: string,
-): Promise<Channel[]> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+function buildData(m3u: string, playlistId: string): PlaylistData {
+  const channels = parseM3U(m3u, playlistId);
+  if (channels.length === 0) {
+    throw new Error('Playlist tidak berisi channel yang valid.');
+  }
+  return { channels, epgUrl: extractEpgUrl(m3u) };
+}
 
+async function fetchPlaylistText(url: string): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const response = await fetch(url, {
       signal: controller.signal,
@@ -45,15 +31,7 @@ export async function fetchPlaylistChannels(
     if (!response.ok) {
       throw new Error(`Server menolak permintaan (HTTP ${response.status}).`);
     }
-
-    const text = await response.text();
-    const channels = parseM3U(text, playlistId);
-
-    if (channels.length === 0) {
-      throw new Error('Playlist tidak berisi channel yang valid.');
-    }
-
-    return channels;
+    return await response.text();
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Koneksi habis waktu. Periksa jaringan lalu coba lagi.');
@@ -63,6 +41,25 @@ export async function fetchPlaylistChannels(
     }
     throw error instanceof Error ? error : new Error('Gagal memuat playlist.');
   } finally {
-    clearTimeout(timeoutId);
+    clearTimeout(timer);
   }
+}
+
+/**
+ * Titik masuk untuk memuat channel dari sebuah Playlist beserta URL EPG-nya.
+ * - `type === 'content'` → parse teks yang ditempel langsung (bebas CORS).
+ * - `type === 'url'`     → unduh file M3U/M3U8 lalu parse.
+ */
+export async function loadPlaylistData(playlist: Playlist): Promise<PlaylistData> {
+  if (playlist.type === 'content' && playlist.content) {
+    return buildData(playlist.content, playlist.id);
+  }
+  const text = await fetchPlaylistText(playlist.url);
+  return buildData(text, playlist.id);
+}
+
+/** Tetap tersedia untuk pemanggil lama yang hanya butuh daftar channel. */
+export async function loadPlaylistChannels(playlist: Playlist): Promise<Channel[]> {
+  const { channels } = await loadPlaylistData(playlist);
+  return channels;
 }

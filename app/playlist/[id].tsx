@@ -11,36 +11,37 @@ import {
 
 import { AppButton } from '@/components/AppButton';
 import { AppHeader } from '@/components/AppHeader';
+import { CategoryFilter } from '@/components/CategoryFilter';
+import { CategoryRail } from '@/components/CategoryRail';
 import { ChannelCard } from '@/components/ChannelCard';
 import { EmptyState } from '@/components/EmptyState';
 import { InfoBanner } from '@/components/InfoBanner';
 import { Screen } from '@/components/Screen';
-import { TVFocusGuide, tvPrefFocus } from '@/components/Tv';
+import { TVFocusGuide } from '@/components/Tv';
 import { colors, fontSize, radius, spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
-import { loadPlaylistChannels } from '@/services/playlistLoader';
-import { getDeadLinks, setDeadLinks } from '@/services/deadLinks';
+import { ensureEpgLoaded } from '@/services/epg';
+import { loadPlaylistData } from '@/services/playlistLoader';
+import { setPlaybackQueue } from '@/services/playbackQueue';
 import { getPlaylistById } from '@/services/playlistStorage';
 import type { Channel, Playlist } from '@/types';
+import { summarizeCategories } from '@/utils/categories';
 import { isPlaceholder, withGridPlaceholders } from '@/utils/grid';
-import { checkStreams } from '@/utils/stream';
+import { goBack } from '@/utils/navigation';
 
 export default function PlaylistDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const playlistId = typeof params.id === 'string' ? params.id : '';
 
-  const { columns, gutter, isTV } = useResponsive();
+  const { columns, gutter, isTV, isTablet, isLandscape } = useResponsive();
 
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
-  const [hideDead, setHideDead] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [scanning, setScanning] = useState(false);
-  const [scanNote, setScanNote] = useState<string | null>(null);
-  const [deadIds, setDeadIds] = useState<ReadonlySet<string>>(new Set());
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!playlistId) {
@@ -53,16 +54,14 @@ export default function PlaylistDetailScreen() {
     }
 
     setPlaylist(meta);
-    const data = await loadPlaylistChannels(meta);
-    setChannels(data);
+    const data = await loadPlaylistData(meta);
+    setChannels(data.channels);
+    void ensureEpgLoaded(data.epgUrl);
   }, [playlistId]);
 
   const refresh = useCallback(async () => {
     try {
       await load();
-      const dead = await getDeadLinks(playlistId);
-      setDeadIds(dead);
-      setScanNote(null);
       setError(null);
     } catch (e) {
       setChannels([]);
@@ -70,39 +69,7 @@ export default function PlaylistDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [load, playlistId]);
-
-  const handleScan = useCallback(async () => {
-    if (channels.length === 0 || scanning) return;
-    setScanning(true);
-    setDeadIds(new Set());
-    setScanNote(null);
-
-    const results = await checkStreams(
-      channels.map((channel) => ({ id: channel.id, url: channel.url, headers: channel.headers })),
-    );
-
-    const dead = new Set<string>();
-    let unknown = 0;
-    for (const result of results) {
-      if (result.status === 'dead') dead.add(result.id);
-      else if (result.status === 'network') unknown += 1;
-      if (result.status === 'invalid') unknown += 1;
-    }
-
-    setDeadIds(dead);
-    await setDeadLinks(playlistId, dead);
-    setScanNote(
-      dead.size === 0
-        ? unknown > 0
-          ? `Semua channel tampak aktif (${unknown} tak dapat diuji — periksa koneksi).`
-          : 'Semua channel dapat diakses. Tidak ada link mati.'
-        : unknown > 0
-          ? `${dead.size} channel mati (404) terdeteksi, ${unknown} tak dapat diuji karena jaringan.`
-          : `${dead.size} channel mati (404) terdeteksi — tandai MATI.`,
-    );
-    setScanning(false);
-  }, [channels, scanning, playlistId]);
+  }, [load]);
 
   useEffect(() => {
     let active = true;
@@ -123,9 +90,19 @@ export default function PlaylistDetailScreen() {
     void refresh();
   }, [refresh]);
 
+  const { categories, counts: categoryCounts } = useMemo(
+    () => summarizeCategories(channels),
+    [channels],
+  );
+
+  const activeGroup = selectedGroup && categories.includes(selectedGroup) ? selectedGroup : null;
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = channels;
+    if (activeGroup) {
+      list = list.filter((channel) => (channel.group ?? 'Umum') === activeGroup);
+    }
     if (q) {
       list = list.filter(
         (channel) =>
@@ -133,16 +110,26 @@ export default function PlaylistDetailScreen() {
           (channel.group ?? '').toLowerCase().includes(q),
       );
     }
-    if (hideDead) {
-      list = list.filter((channel) => !deadIds.has(channel.id));
-    }
     return list;
-  }, [channels, query, hideDead, deadIds]);
+  }, [channels, query, activeGroup]);
+
+  const openSchedule = useCallback(
+    (channel: Channel) => {
+      if (!channel.tvgId) return;
+      router.push({
+        pathname: '/schedule',
+        params: { tvgId: channel.tvgId, name: channel.name },
+      });
+    },
+    [router],
+  );
 
   const data = useMemo(() => withGridPlaceholders(filtered, columns), [filtered, columns]);
 
   const openChannel = useCallback(
     (channel: Channel) => {
+      const index = filtered.findIndex((item) => item.id === channel.id);
+      setPlaybackQueue(filtered, index);
       router.push({
         pathname: '/player',
         params: {
@@ -153,10 +140,11 @@ export default function PlaylistDetailScreen() {
         },
       });
     },
-    [router],
+    [router, filtered],
   );
 
   const horizontalPadding = isTV ? spacing.xxl : spacing.lg;
+  const wide = isTV || isTablet || isLandscape;
 
   const renderBody = () => {
     if (loading) {
@@ -182,86 +170,78 @@ export default function PlaylistDetailScreen() {
     }
 
     return (
-      <TVFocusGuide style={styles.listArea}>
-        <FlatList
-          key={`channels-${columns}`}
-          data={data}
-          keyExtractor={(item) => item.id}
-          numColumns={columns}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          renderItem={({ item, index }) =>
-            isPlaceholder(item) ? (
-              <View style={styles.placeholder} />
-            ) : (
-              <ChannelCard
-                channel={item}
-                onPress={openChannel}
-                first={index === 0}
-                dead={deadIds.has(item.id)}
-              />
-            )
-          }
-        columnWrapperStyle={columns > 1 ? { gap: gutter } : undefined}
-        contentContainerStyle={[
-          styles.listContent,
-          { gap: gutter, paddingHorizontal: horizontalPadding },
-        ]}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Cari channel…"
-              placeholderTextColor={colors.textMuted}
-              autoCorrect={false}
-              style={[styles.search, { fontSize: isTV ? fontSize.lg : fontSize.md }]}
-            />
-            <AppButton
-              title={scanning ? 'Memeriksa…' : 'Periksa Channel Mati'}
-              icon={scanning ? undefined : 'pulse'}
-              large
-              fullWidth
-              loading={scanning}
-              disabled={scanning || channels.length === 0}
-              onPress={handleScan}
-              tvFocus={tvPrefFocus(true)}
-            />
-            {deadIds.size > 0 ? (
-              <AppButton
-                title={
-                  hideDead
-                    ? `Tampilkan semua (${deadIds.size} mati)`
-                    : `Sembunyikan ${deadIds.size} channel mati`
-                }
-                icon={hideDead ? 'eye-outline' : 'eye-off-outline'}
-                variant="secondary"
-                fullWidth
-                onPress={() => setHideDead((value) => !value)}
-                tvFocus={tvPrefFocus(true)}
-              />
-            ) : null}
-            {scanNote ? (
-              <InfoBanner
-                variant={deadIds.size > 0 ? 'danger' : 'info'}
-                message={scanNote}
-              />
-            ) : null}
-          </View>
-        }
-        ListEmptyComponent={
-          <EmptyState
-            icon="search-outline"
-            title="Channel tidak ditemukan"
-            description={
-              query
-                ? `Tidak ada channel yang cocok dengan "${query}".`
-                : 'Playlist ini tidak memiliki channel yang bisa ditampilkan.'
-            }
+      <View style={styles.body}>
+        {wide && channels.length > 0 ? (
+          <CategoryRail
+            categories={categories}
+            counts={categoryCounts}
+            total={channels.length}
+            selected={activeGroup}
+            onSelect={setSelectedGroup}
           />
-        }
-      />
-      </TVFocusGuide>
+        ) : null}
+        <View style={styles.main}>
+          <TVFocusGuide style={styles.listArea}>
+            <FlatList
+              key={`channels-${columns}`}
+              data={data}
+              keyExtractor={(item) => item.id}
+              numColumns={columns}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item, index }) =>
+                isPlaceholder(item) ? (
+                  <View style={styles.placeholder} />
+                ) : (
+                  <ChannelCard
+                    channel={item}
+                    onPress={openChannel}
+                    onSchedule={openSchedule}
+                    first={index === 0}
+                  />
+                )
+              }
+              columnWrapperStyle={columns > 1 ? { gap: gutter } : undefined}
+              contentContainerStyle={[
+                styles.listContent,
+                { gap: gutter, paddingHorizontal: horizontalPadding },
+              ]}
+              ListHeaderComponent={
+                <View style={styles.header}>
+                  <TextInput
+                    value={query}
+                    onChangeText={setQuery}
+                    placeholder="Cari channel…"
+                    placeholderTextColor={colors.textMuted}
+                    autoCorrect={false}
+                    style={[styles.search, { fontSize: isTV ? fontSize.lg : fontSize.md }]}
+                  />
+                  {!wide && categories.length > 1 ? (
+                    <CategoryFilter
+                      categories={categories}
+                      selected={activeGroup}
+                      onSelect={setSelectedGroup}
+                    />
+                  ) : null}
+                </View>
+              }
+              ListEmptyComponent={
+                <EmptyState
+                  icon="search-outline"
+                  title="Channel tidak ditemukan"
+                  description={
+                    query
+                      ? `Tidak ada channel yang cocok dengan "${query}".`
+                      : activeGroup
+                        ? `Tidak ada channel pada kategori "${activeGroup}".`
+                        : 'Playlist ini tidak memiliki channel yang bisa ditampilkan.'
+                  }
+                />
+              }
+            />
+          </TVFocusGuide>
+        </View>
+      </View>
     );
   };
 
@@ -269,12 +249,8 @@ export default function PlaylistDetailScreen() {
     <Screen edges={['top', 'left', 'right']}>
       <AppHeader
         title={playlist?.name ?? 'Playlist'}
-        subtitle={
-          loading
-            ? 'Memuat…'
-            : `${channels.length} channel${deadIds.size > 0 ? ` · ${deadIds.size} mati` : ''}`
-        }
-        onBack={() => router.back()}
+        subtitle={loading ? 'Memuat…' : `${channels.length} channel`}
+        onBack={() => goBack(router)}
       />
       {renderBody()}
       {channels.length > 0 ? (
@@ -290,6 +266,13 @@ export default function PlaylistDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  body: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  main: {
+    flex: 1,
+  },
   center: {
     flex: 1,
     alignItems: 'center',

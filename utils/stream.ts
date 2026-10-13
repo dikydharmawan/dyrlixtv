@@ -3,24 +3,14 @@ import { isValidStreamUrl } from '@/utils/url';
 
 export type StreamCheck = 'ok' | 'dead' | 'network' | 'invalid';
 
-export interface StreamCheckItem {
-  id: string;
-  url: string;
-  headers?: Record<string, string>;
-}
-
 export interface StreamCheckDetail {
   status: StreamCheck;
   /** Kode HTTP bila server sempat menjawab (dipakai untuk pesan error/diagnostik). */
   httpStatus?: number;
 }
 
-export interface StreamCheckResult extends StreamCheckDetail {
-  id: string;
-}
-
 /**
- * Pengecekan cepat ketersediaan stream.
+ * Pengecekan cepat ketersediaan stream (dipakai pemutar untuk pra-cek).
  * Hanya 404/410 yang dianggap PASTI mati; 4xx lain (403/401) belum tentu
  * karena pemutar asli mungkin tetap bisa memutar dengan token.
  * Header default selalu dikirim; header khusus channel menang.
@@ -48,39 +38,6 @@ export async function checkStreamDetail(
   } finally {
     clearTimeout(timer);
   }
-}
-
-/** Versi ringkas yang hanya mengembalikan status. */
-export async function checkStream(
-  url: string,
-  timeoutMs = 8000,
-  headers?: Record<string, string>,
-): Promise<StreamCheck> {
-  return (await checkStreamDetail(url, timeoutMs, headers)).status;
-}
-
-/** Cek banyak channel sekaligus dengan batas konkurensi (hindari akses berlebihan ke server). */
-export async function checkStreams(
-  items: StreamCheckItem[],
-  concurrency = 8,
-  timeoutMs = 8000,
-): Promise<StreamCheckResult[]> {
-  const results: StreamCheckResult[] = new Array(items.length);
-  let cursor = 0;
-
-  const worker = async () => {
-    while (cursor < items.length) {
-      const i = cursor;
-      cursor += 1;
-      const item = items[i];
-      const detail = await checkStreamDetail(item.url, timeoutMs, item.headers);
-      results[i] = { id: item.id, ...detail };
-    }
-  };
-
-  const workerCount = Math.max(1, Math.min(concurrency, items.length));
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-  return results;
 }
 
 /** Deskripsi ramah untuk sebuah kode HTTP. */

@@ -39,6 +39,7 @@
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
     "expo-video": "~57.0.5",
+    "pako": "^2.2.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "npm:react-native-tvos@0.86.3-0",
@@ -48,6 +49,7 @@
   },
   "devDependencies": {
     "@react-native-tvos/config-tv": "^0.1.7",
+    "@types/pako": "^2.0.4",
     "@types/react": "~19.2.2",
     "eslint": "^9.39.0",
     "eslint-config-expo": "~57.0.2",

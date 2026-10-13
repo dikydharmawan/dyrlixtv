@@ -23,6 +23,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { addPlaylist } from '@/services/playlistStorage';
 import type { PlaylistType } from '@/types';
 import { parseM3U } from '@/utils/m3uParser';
+import { goBack } from '@/utils/navigation';
 import { isValidStreamUrl } from '@/utils/url';
 
 type InputMode = PlaylistType | 'file';
@@ -123,7 +124,7 @@ export default function AddPlaylistScreen() {
 
   return (
     <Screen edges={['top', 'left', 'right', 'bottom']}>
-      <AppHeader title="Tambah Playlist" subtitle="Format M3U / M3U8" onBack={() => router.back()} />
+      <AppHeader title="Tambah Playlist" subtitle="Format M3U / M3U8" onBack={() => goBack(router)} />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -270,7 +271,7 @@ export default function AddPlaylistScreen() {
               variant="ghost"
               large
               fullWidth
-              onPress={() => router.back()}
+              onPress={() => goBack(router)}
             />
           )}
 

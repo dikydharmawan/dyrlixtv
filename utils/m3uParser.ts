@@ -28,7 +28,18 @@ interface PendingChannel {
   name?: string;
   logo?: string | null;
   group?: string;
+  tvgId?: string;
   headers?: Record<string, string>;
+}
+
+/** Mengambil URL guide EPG (XMLTV) dari baris header `#EXTM3U x-tvg-url="..."`. */
+export function extractEpgUrl(content: string): string | null {
+  if (!content || typeof content !== 'string') return null;
+  const headerMatch = /#EXTM3U([^\n\r]*)/i.exec(content);
+  if (!headerMatch) return null;
+  const urlMatch = /(?:x-tvg-url|url-tvg)="([^"]+)"/i.exec(headerMatch[1]);
+  const raw = urlMatch?.[1]?.trim();
+  return raw ? raw : null;
 }
 
 function parseAttributes(input: string): Record<string, string> {
@@ -145,6 +156,7 @@ export function parseM3U(content: string, playlistId = 'playlist'): Channel[] {
         name: displayName || attributes['tvg-name'] || attributes['tvg-id'] || undefined,
         logo: attributes['tvg-logo'] || null,
         group: attributes['group-title'] || undefined,
+        tvgId: attributes['tvg-id'] || undefined,
       };
       continue;
     }
@@ -172,6 +184,7 @@ export function parseM3U(content: string, playlistId = 'playlist'): Channel[] {
       url: line,
       logo: pending?.logo ?? null,
       group: pending?.group,
+      tvgId: pending?.tvgId,
       headers: pending?.headers,
     });
 

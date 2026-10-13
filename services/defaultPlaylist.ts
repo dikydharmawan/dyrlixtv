@@ -2,15 +2,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { DEFAULT_CHANNELS, DEFAULT_PLAYLIST_URL } from '@/constants/channels';
 import type { Channel } from '@/types';
-import { parseM3U } from '@/utils/m3uParser';
+import { extractEpgUrl, parseM3U } from '@/utils/m3uParser';
 
-const CACHE_KEY = '@iptv_player/default_playlist:v2';
+const CACHE_KEY = '@iptv_player/default_playlist:v3';
 /** Umur cache: 30 menit sebelum mencoba menyegarkan dari jaringan. */
 const STALE_MS = 30 * 60 * 1000;
 
 interface CacheEntry {
   channels: Channel[];
+  epgUrl: string | null;
   fetchedAt: number;
+}
+
+export interface DefaultPlaylist {
+  channels: Channel[];
+  /** URL guide EPG (XMLTV) dari header `x-tvg-url`, bila ada. */
+  epgUrl: string | null;
 }
 
 async function readCache(): Promise<CacheEntry | null> {
@@ -34,12 +41,12 @@ async function writeCache(entry: CacheEntry): Promise<void> {
  * Memuat channel bawaan dari `DEFAULT_PLAYLIST_URL`.
  * Fail-safe: pakai cache (bila masih segar), lalu cache lama, lalu channel contoh.
  */
-export async function loadDefaultChannels(force = false): Promise<Channel[]> {
+export async function loadDefaultPlaylist(force = false): Promise<DefaultPlaylist> {
   const cached = await readCache();
   const freshEnough = cached && Date.now() - cached.fetchedAt < STALE_MS;
 
   if (!force && freshEnough && cached) {
-    return cached.channels;
+    return { channels: cached.channels, epgUrl: cached.epgUrl ?? null };
   }
 
   try {
@@ -54,12 +61,19 @@ export async function loadDefaultChannels(force = false): Promise<Channel[]> {
     if (channels.length === 0) {
       throw new Error('Playlist bawaan kosong.');
     }
-    await writeCache({ channels, fetchedAt: Date.now() });
-    return channels;
+    const epgUrl = extractEpgUrl(text);
+    await writeCache({ channels, epgUrl, fetchedAt: Date.now() });
+    return { channels, epgUrl };
   } catch {
     if (cached) {
-      return cached.channels;
+      return { channels: cached.channels, epgUrl: cached.epgUrl ?? null };
     }
-    return DEFAULT_CHANNELS.slice();
+    return { channels: DEFAULT_CHANNELS.slice(), epgUrl: null };
   }
+}
+
+/** Versi ringkas yang hanya mengembalikan daftar channel. */
+export async function loadDefaultChannels(force = false): Promise<Channel[]> {
+  const { channels } = await loadDefaultPlaylist(force);
+  return channels;
 }

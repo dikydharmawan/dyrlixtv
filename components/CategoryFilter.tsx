@@ -5,11 +5,14 @@ import { colors, fontSize, radius, spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
 
 interface CategoryFilterProps {
+  /** Kategori, sebaiknya sudah diurutkan dari yang terbanyak. */
   categories: string[];
   selected: string | null;
   onSelect: (category: string | null) => void;
   /** Label untuk tombol "semua kategori". */
   allLabel?: string;
+  /** Jumlah kategori yang tampil sebelum diringkas. */
+  maxVisible?: number;
 }
 
 export function CategoryFilter({
@@ -17,10 +20,17 @@ export function CategoryFilter({
   selected,
   onSelect,
   allLabel = 'Semua',
+  maxVisible = 8,
 }: CategoryFilterProps) {
   const { isTV } = useResponsive();
+  const [expanded, setExpanded] = useState(false);
 
   if (categories.length === 0) return null;
+
+  const limited = expanded ? categories : categories.slice(0, maxVisible);
+  const visible =
+    selected && !limited.includes(selected) ? [selected, ...limited] : limited;
+  const hiddenCount = categories.length - limited.length;
 
   return (
     <ScrollView
@@ -34,7 +44,7 @@ export function CategoryFilter({
         isTV={isTV}
         onPress={() => onSelect(null)}
       />
-      {categories.map((category) => (
+      {visible.map((category) => (
         <Chip
           key={category}
           label={category}
@@ -43,6 +53,14 @@ export function CategoryFilter({
           onPress={() => onSelect(category)}
         />
       ))}
+      {hiddenCount > 0 ? (
+        <Chip
+          label={expanded ? 'Ringkas' : `+${hiddenCount} lagi`}
+          active={false}
+          isTV={isTV}
+          onPress={() => setExpanded((value) => !value)}
+        />
+      ) : null}
     </ScrollView>
   );
 }
