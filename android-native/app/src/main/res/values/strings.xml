@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DYRLIX</string>
+    <string name="channel_playback">Playback</string>
+    <string name="channel_playback_desc">Kontrol pemutaran video</string>
+    <string name="channel_updates">Pembaruan aplikasi</string>
+    <string name="channel_updates_desc">Status unduhan dan instalasi pembaruan</string>
+</resources>
