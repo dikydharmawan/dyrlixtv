@@ -1,8 +1,8 @@
 {
   "packageName": "com.dyrlix.player",
-  "versionCode": 11,
-  "versionName": "1.0.9",
-  "apkUrl": "https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/dyrlix-1.0.9.apk",
-  "notes": "Neutral dark theme, custom logo badge, and aesthetic screen wallpaper watermark",
-  "publishedAt": "2026-10-13T13:53:13.077Z"
+  "versionCode": 12,
+  "versionName": "1.0.10",
+  "apkUrl": "https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/dyrlix-1.0.10.apk",
+  "notes": "Perbaiki update dalam aplikasi (izin REQUEST_INSTALL_PACKAGES) + APK jauh lebih kecil (arm64, dikompres)",
+  "publishedAt": "2026-10-14T12:03:23.708Z"
 }
