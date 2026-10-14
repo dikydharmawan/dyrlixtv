@@ -2,7 +2,7 @@
   "expo": {
     "name": "DYRLIX",
     "slug": "dyrlix",
-    "version": "1.0.10",
+    "version": "1.0.11",
     "orientation": "default",
     "scheme": "dyrlix",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "com.dyrlix.player",
-      "versionCode": 12,
+      "versionCode": 13,
       "permissions": [
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ],
@@ -61,7 +61,7 @@
             "enableBundleCompression": true,
             "enablePngCrunchInReleaseBuilds": true,
             "useLegacyPackaging": true,
-            "buildArchs": ["arm64-v8a"]
+            "buildArchs": ["arm64-v8a", "armeabi-v7a"]
           }
         }
       ],
