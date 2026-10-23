@@ -55,6 +55,8 @@ export default function PlaylistDetailScreen() {
 
     setPlaylist(meta);
     const data = await loadPlaylistData(meta);
+    // Yield ke event loop biar UI sempat render loading state & nggak keliatan freeze
+    await new Promise((resolve) => setTimeout(resolve, 0));
     setChannels(data.channels);
     void ensureEpgLoaded(data.epgUrl);
   }, [playlistId]);

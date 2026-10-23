@@ -26,10 +26,15 @@ export function useResponsive(): Responsive {
   const scale = isTV ? 1.25 : isTablet ? 1.1 : 1;
 
   let columns = 1;
-  if (width >= 1800) columns = 5;
-  else if (width >= 1360) columns = 4;
-  else if (width >= 880) columns = 3;
-  else if (width >= 560) columns = 2;
+  if (isTV) {
+    if (width >= 1800) columns = 5;
+    else if (width >= 1360) columns = 4;
+    else columns = 3;
+  } else {
+    if (width >= 1024) columns = 3; // tablet landscape
+    else if (width >= 720) columns = 2; // tablet portrait
+    else columns = 1; // phone portrait/compact
+  }
 
   return {
     width,
