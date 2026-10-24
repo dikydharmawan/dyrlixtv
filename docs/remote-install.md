@@ -6,6 +6,38 @@ berada di jaringan (rumah/kantor) yang berbeda-beda, pembaruan ditangani oleh
 ketiga). Tailscale hanya tersedia sebagai cadangan opsional untuk menembus koneksi
 ADB manual dari PC.
 
+## Build native Kotlin (jalur kedua)
+
+Expo/React Native tetap tersedia di root repo. Aplikasi Kotlin dikembangkan paralel
+di `android-native/`; build debug bisa dipasang berdampingan untuk uji internal:
+
+```bash
+npm run native:assemble-debug
+adb install -r android-native/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Build release memakai `applicationId` `com.dyrlix.player` dan `versionCode 14`.
+APK release hanya bisa memperbarui instalasi RN yang sudah ada jika ditandatangani
+dengan keystore yang sama. Isi `android-native/keystore.properties` secara lokal
+dengan kredensial keystore produksi sebelum membuat rilis; jangan commit kredensial.
+Debug memakai suffix `.debug`, sehingga dapat tetap terpasang bersama aplikasi
+produksi. Karena APK RN dan Kotlin berbagi package ID saat rilis, jaga `versionCode`
+terus naik lintas kedua jalur; setelah menerbitkan Kotlin code 14, rilis RN
+berikutnya harus memakai code minimal 15.
+
+Untuk mengirim build Kotlin melalui self-updater yang sama:
+
+```bash
+npm run native:assemble-release
+./scripts/publish-gh-pages.sh \
+  --apk android-native/app/build/outputs/apk/release/app-release.apk \
+  --version-code 14 \
+  --version-name 2.0.0 \
+  --notes "Rilis Android native Kotlin"
+```
+
+Pastikan APK yang diunggah sudah ditandatangani dengan keystore produksi yang sama.
+
 ---
 
 ## 0. Cara utama: pembaruan lewat aplikasi (self-updater)

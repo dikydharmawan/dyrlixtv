@@ -39,3 +39,12 @@ yarn-error.*
 # Editor
 .idea/
 .vscode/
+
+# Kotlin (android-native)
+/android-native/.gradle/
+/android-native/build/
+/android-native/app/build/
+/android-native/local.properties
+/android-native/keystore.properties
+/android-native/.idea/
+/android-native/captures/
