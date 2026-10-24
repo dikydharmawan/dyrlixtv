@@ -3,6 +3,6 @@
   "versionCode": 14,
   "versionName": "2.0.0",
   "apkUrl": "https://raw.githubusercontent.com/dikydharmawan/dyrlixtv/gh-pages/dyrlix-2.0.0.apk",
-  "notes": "Rilis Android native Kotlin (signed baru)",
-  "publishedAt": "2026-10-24T02:07:36.148Z"
+  "notes": "Forcing landscape orientation",
+  "publishedAt": "2026-10-24T02:45:19.948Z"
 }
