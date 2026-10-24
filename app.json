@@ -2,7 +2,7 @@
   "expo": {
     "name": "DYRLIX",
     "slug": "dyrlix",
-    "version": "1.0.11",
+    "version": "2.0.0",
     "orientation": "default",
     "scheme": "dyrlix",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "com.dyrlix.player",
-      "versionCode": 13,
+      "versionCode": 14,
       "permissions": [
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ],
