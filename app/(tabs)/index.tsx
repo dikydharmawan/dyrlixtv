@@ -17,7 +17,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { loadDefaultPlaylist } from '@/services/defaultPlaylist';
 import { ensureEpgLoaded } from '@/services/epg';
 import { setPlaybackQueue } from '@/services/playbackQueue';
-import { getLastChannel } from '@/services/playlistStorage';
+import { getLastChannel, getFavorites, getRecent } from '@/services/playlistStorage';
 import type { Channel } from '@/types';
 import { summarizeCategories } from '@/utils/categories';
 import { isPlaceholder, withGridPlaceholders } from '@/utils/grid';
@@ -29,14 +29,24 @@ export default function HomeScreen() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastChannelId, setLastChannelId] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [recent, setRecent] = useState<string[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
   const reload = useCallback(async (force = true) => {
     setLoading(true);
     setChannels([]);
-    const data = await loadDefaultPlaylist(force);
+    const [data, lastId, favs, recents] = await Promise.all([
+      loadDefaultPlaylist(force),
+      getLastChannel(),
+      getFavorites(),
+      getRecent()
+    ]);
     setChannels(data.channels);
+    setLastChannelId(lastId);
+    setFavorites(favs);
+    setRecent(recents);
     void ensureEpgLoaded(data.epgUrl, force);
     setLoading(false);
   }, []);
@@ -45,11 +55,15 @@ export default function HomeScreen() {
     let active = true;
     void Promise.all([
       loadDefaultPlaylist(false),
-      getLastChannel()
-    ]).then(([data, lastId]) => {
+      getLastChannel(),
+      getFavorites(),
+      getRecent()
+    ]).then(([data, lastId, favs, recents]) => {
       if (!active) return;
       setChannels(data.channels);
       setLastChannelId(lastId);
+      setFavorites(favs);
+      setRecent(recents);
       setLoading(false);
       void ensureEpgLoaded(data.epgUrl);
     });

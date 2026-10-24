@@ -16,8 +16,9 @@
     },
     "android": {
       "package": "com.dyrlix.player",
-      "versionCode": 14,
+      "versionCode": 15,
       "permissions": [
+        "android.permission.REQUEST_INSTALL_PACKAGES",
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ],
       "softwareKeyboardLayoutMode": "pan",
@@ -61,7 +62,10 @@
             "enableBundleCompression": true,
             "enablePngCrunchInReleaseBuilds": true,
             "useLegacyPackaging": true,
-            "buildArchs": ["arm64-v8a", "armeabi-v7a"]
+            "buildArchs": [
+              "arm64-v8a",
+              "armeabi-v7a"
+            ]
           }
         }
       ],
@@ -86,6 +90,12 @@
         "projectId": "0848ebf7-b052-4db2-b47c-fdd78e55cd90"
       }
     },
-    "owner": "dikydharmawan1219"
+    "owner": "dikydharmawan1219",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0848ebf7-b052-4db2-b47c-fdd78e55cd90"
+    }
   }
 }

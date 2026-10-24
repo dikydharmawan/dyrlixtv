@@ -109,6 +109,8 @@ export default function PlayerScreen() {
 
   useEffect(() => {
     if (!url) return;
+    console.log(`[Player] Attempting to load: ${url}`);
+    
     let active = true;
     retriedRef.current = false;
     void checkStreamDetail(url, 8000, channelHeaders).then((result) => {
@@ -119,7 +121,9 @@ export default function PlayerScreen() {
     };
   }, [url, channelHeaders]);
 
+  // Tambahkan pengamanan agar tidak membuat player jika source belum siap
   const player = useVideoPlayer(source, (instance) => {
+    console.log(`[Player] Instance initialized for: ${url}`);
     instance.loop = false;
     instance.play();
   });
