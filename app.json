@@ -3,7 +3,7 @@
     "name": "DYRLIX",
     "slug": "dyrlix",
     "version": "2.0.0",
-    "orientation": "default",
+    "orientation": "landscape",
     "scheme": "dyrlix",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0F172A",

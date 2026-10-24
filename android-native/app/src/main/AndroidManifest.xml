@@ -46,6 +46,7 @@
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|smallestScreenSize"
             android:exported="true"
             android:launchMode="singleTask"
+            android:screenOrientation="landscape"
             android:supportsPictureInPicture="true"
             android:theme="@style/Theme.DYRLIX"
             android:windowSoftInputMode="adjustPan">
