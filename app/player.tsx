@@ -20,7 +20,7 @@ import { colors, fontSize, radius, spacing } from '@/constants/theme';
 import { useEpg } from '@/hooks/useEpg';
 import { getNowNext } from '@/services/epg';
 import { getPlaybackQueue } from '@/services/playbackQueue';
-import { saveLastChannel } from '@/services/playlistStorage';
+import { saveLastChannel, addRecent } from '@/services/playlistStorage';
 import { isTV, tvPrefFocus } from '@/components/Tv';
 import { goBack } from '@/utils/navigation';
 import { checkStreamDetail, friendlyStreamError, type StreamCheckDetail } from '@/utils/stream';
@@ -53,6 +53,7 @@ export default function PlayerScreen() {
   useEffect(() => {
     if (activeChannel?.id) {
       void saveLastChannel(activeChannel.id);
+      void addRecent(activeChannel.id);
     }
   }, [activeChannel?.id]);
 
