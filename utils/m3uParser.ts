@@ -143,29 +143,40 @@ export function parseM3U(content: string, playlistId = 'playlist'): Channel[] {
   let pending: PendingChannel | null = null;
   let index = 0;
 
-  const separatorRegex = /[\n\r\u2028\u2029]/g;
   let start = 0;
-  let match;
-
   while (start < content.length) {
-    separatorRegex.lastIndex = start;
-    match = separatorRegex.exec(content);
-    
-    let end = match ? match.index : content.length;
-    let line = content.substring(start, end);
-
-    // Normalisasi baris (sesuai logika normalizeContent lama)
-    line = line
-      .replace(/[\u201C\u201D]/g, '"')
-      .replace(INVISIBLE_CHARS, '');
-
-    // Majukan start melewati baris ini dan karakter pemisahnya
-    // Menangani CRLF dengan memeriksa karakter berikutnya jika \r
-    let nextStart = end + 1;
-    if (match && match[0] === '\r' && content[nextStart] === '\n') {
-      nextStart++;
+    // Cari posisi karakter pemisah baris tercepat
+    let end = -1;
+    for (let i = start; i < content.length; i++) {
+      const charCode = content.charCodeAt(i);
+      if (charCode === 10 || charCode === 13 || charCode === 8232 || charCode === 8233) {
+        end = i;
+        break;
+      }
     }
-    start = nextStart;
+    
+    // Jika tidak ditemukan karakter pemisah baris, gunakan akhir string
+    const lineEnd = end === -1 ? content.length : end;
+    let line = content.substring(start, lineEnd);
+
+    // Normalisasi baris (hanya jika ada karakter yang perlu diganti)
+    if (line.search(/[\u201C\u201D\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/) !== -1) {
+      line = line
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(INVISIBLE_CHARS, '');
+    }
+
+    // Majukan start melewati baris ini
+    if (end === -1) {
+      start = content.length;
+    } else {
+      // Menangani CRLF
+      if (content[end] === '\r' && content[end + 1] === '\n') {
+        start = end + 2;
+      } else {
+        start = end + 1;
+      }
+    }
 
     const trimmedLine = line.trim();
     if (!trimmedLine) continue;
