@@ -6,6 +6,8 @@ import { deriveNameFromUrl, isValidStreamUrl } from '@/utils/url';
 
 const STORAGE_KEY = '@iptv_player/playlists:v1';
 const LAST_CHANNEL_KEY = '@iptv_player/last_channel:v1';
+const FAVORITES_KEY = '@iptv_player/favorites:v1';
+const RECENT_KEY = '@iptv_player/recent:v1';
 
 export async function saveLastChannel(channelId: string) {
   await AsyncStorage.setItem(LAST_CHANNEL_KEY, channelId);
@@ -13,6 +15,31 @@ export async function saveLastChannel(channelId: string) {
 
 export async function getLastChannel(): Promise<string | null> {
   return await AsyncStorage.getItem(LAST_CHANNEL_KEY);
+}
+
+export async function getFavorites(): Promise<string[]> {
+  const raw = await AsyncStorage.getItem(FAVORITES_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+export async function toggleFavorite(channelId: string): Promise<string[]> {
+  const favorites = await getFavorites();
+  const next = favorites.includes(channelId)
+    ? favorites.filter((id) => id !== channelId)
+    : [...favorites, channelId];
+  await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+  return next;
+}
+
+export async function getRecent(): Promise<string[]> {
+  const raw = await AsyncStorage.getItem(RECENT_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+export async function addRecent(channelId: string) {
+  const recent = await getRecent();
+  const next = [channelId, ...recent.filter((id) => id !== channelId)].slice(0, 10);
+  await AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
 }
 
 function generateId(): string {

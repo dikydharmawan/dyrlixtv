@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -17,6 +17,7 @@ import { useEpg } from '@/hooks/useEpg';
 import { useResponsive } from '@/hooks/useResponsive';
 import { getNowNext, isLiveTitle } from '@/services/epg';
 import { tvPrefFocus, type TVFocusProps } from '@/components/Tv';
+import { getFavorites, toggleFavorite } from '@/services/playlistStorage';
 import type { Channel } from '@/types';
 
 interface ChannelCardProps {
@@ -42,6 +43,16 @@ export function ChannelCard({
   const { isTV } = useResponsive();
   const [focused, setFocused] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  useEffect(() => {
+    void getFavorites().then((favs) => setIsFavorite(favs.includes(channel.id)));
+  }, [channel.id]);
+
+  const handleToggleFavorite = useCallback(async () => {
+    const nextFavs = await toggleFavorite(channel.id);
+    setIsFavorite(nextFavs.includes(channel.id));
+  }, [channel.id]);
 
   const showLogo = Boolean(channel.logo) && !logoFailed;
   const logoHeight = isTV ? 140 : 100;
@@ -143,6 +154,14 @@ export function ChannelCard({
                 style={styles.scheduleIcon}
               />
             ) : null}
+            <IconButton
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              label={isFavorite ? 'Hapus dari favorit' : 'Tambah ke favorit'}
+              size={isTV ? 26 : 22}
+              color={isFavorite ? colors.danger : colors.textMuted}
+              onPress={handleToggleFavorite}
+              style={styles.scheduleIcon}
+            />
             <Ionicons
               name={focused ? 'play-circle' : 'play-circle-outline'}
               size={isTV ? 30 : 24}
