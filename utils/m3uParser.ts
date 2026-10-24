@@ -133,24 +133,48 @@ function cleanDisplayName(value: string): string {
 /**
  * Mengubah isi file M3U/M3U8 menjadi daftar Channel.
  * Mendukung format `#EXTINF:-1 tvg-logo="..." group-title="...", Nama`.
+ * 
+ * Dioptimalkan untuk memproses file besar tanpa memuat seluruh baris ke dalam array memori.
  */
 export function parseM3U(content: string, playlistId = 'playlist'): Channel[] {
   if (!content || typeof content !== 'string') return [];
 
-  const lines = normalizeContent(content).split('\n');
   const channels: Channel[] = [];
   let pending: PendingChannel | null = null;
   let index = 0;
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) continue;
+  const separatorRegex = /[\n\r\u2028\u2029]/g;
+  let start = 0;
+  let match;
 
-    if (/^#EXTINF/i.test(line)) {
-      const commaIndex = findNameSplitIndex(line);
+  while (start < content.length) {
+    separatorRegex.lastIndex = start;
+    match = separatorRegex.exec(content);
+    
+    let end = match ? match.index : content.length;
+    let line = content.substring(start, end);
+
+    // Normalisasi baris (sesuai logika normalizeContent lama)
+    line = line
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(INVISIBLE_CHARS, '');
+
+    // Majukan start melewati baris ini dan karakter pemisahnya
+    // Menangani CRLF dengan memeriksa karakter berikutnya jika \r
+    let nextStart = end + 1;
+    if (match && match[0] === '\r' && content[nextStart] === '\n') {
+      nextStart++;
+    }
+    start = nextStart;
+
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
+
+    if (/^#EXTINF/i.test(trimmedLine)) {
+      const commaIndex = findNameSplitIndex(trimmedLine);
       const hasSeparator = commaIndex >= 0;
-      const meta = hasSeparator ? line.slice(0, commaIndex) : line;
-      const displayName = hasSeparator ? cleanDisplayName(line.slice(commaIndex + 1)) : '';
+      const meta = hasSeparator ? trimmedLine.slice(0, commaIndex) : trimmedLine;
+      const displayName = hasSeparator ? cleanDisplayName(trimmedLine.slice(commaIndex + 1)) : '';
       const attributes = parseAttributes(meta);
       pending = {
         name: displayName || attributes['tvg-name'] || attributes['tvg-id'] || undefined,
@@ -163,25 +187,25 @@ export function parseM3U(content: string, playlistId = 'playlist'): Channel[] {
 
     // Direktif header stream (#EXTHTTP / #KODIPROP / #EXTVLCOPT) dikumpulkan untuk channel berikutnya.
     if (
-      /^#EXTHTTP:/i.test(line) ||
-      /^#KODIPROP:/i.test(line) ||
-      /^#EXTVLCOPT:/i.test(line)
+      /^#EXTHTTP:/i.test(trimmedLine) ||
+      /^#KODIPROP:/i.test(trimmedLine) ||
+      /^#EXTVLCOPT:/i.test(trimmedLine)
     ) {
-      pending = collectHeaders(pending, line);
+      pending = collectHeaders(pending, trimmedLine);
       continue;
     }
 
     // Lewati baris komentar/direktif lain (#EXTM3U, #EXTVLCOPT, dsb).
-    if (line.startsWith('#')) continue;
+    if (trimmedLine.startsWith('#')) continue;
 
     // Baris dianggap URL stream jika mengandung skema protokol (`://`).
     // Tidak harus di awal baris agar tahan terhadap sisa karakter aneh.
-    if (!line.includes('://')) continue;
+    if (!trimmedLine.includes('://')) continue;
 
     channels.push({
       id: `${playlistId}-${index}`,
       name: pending?.name?.trim() || `Channel ${index + 1}`,
-      url: line,
+      url: trimmedLine,
       logo: pending?.logo ?? null,
       group: pending?.group,
       tvgId: pending?.tvgId,
