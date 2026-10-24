@@ -1,7 +1,9 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Channel, Playlist } from '@/types';
 import { extractEpgUrl, parseM3U } from '@/utils/m3uParser';
 
 const FETCH_TIMEOUT_MS = 20000;
+const CACHE_PREFIX = '@iptv_player/cache:';
 
 export interface PlaylistData {
   channels: Channel[];
@@ -50,12 +52,33 @@ async function fetchPlaylistText(url: string): Promise<string> {
  * - `type === 'content'` → parse teks yang ditempel langsung (bebas CORS).
  * - `type === 'url'`     → unduh file M3U/M3U8 lalu parse.
  */
-export async function loadPlaylistData(playlist: Playlist): Promise<PlaylistData> {
-  if (playlist.type === 'content' && playlist.content) {
-    return buildData(playlist.content, playlist.id);
+export async function loadPlaylistData(playlist: Playlist, forceRefresh = false): Promise<PlaylistData> {
+  const cacheKey = `${CACHE_PREFIX}${playlist.id}`;
+
+  if (!forceRefresh) {
+    const cached = await AsyncStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached) as PlaylistData;
+      } catch (e) {
+        console.warn('[playlistLoader] Gagal parsing cache, lanjut fetch ulang', e);
+      }
+    }
   }
-  const text = await fetchPlaylistText(playlist.url);
-  return buildData(text, playlist.id);
+
+  let text: string;
+  if (playlist.type === 'content' && playlist.content) {
+    text = playlist.content;
+  } else {
+    text = await fetchPlaylistText(playlist.url);
+  }
+
+  const data = buildData(text, playlist.id);
+  
+  // Simpan ke cache
+  await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+  
+  return data;
 }
 
 /** Tetap tersedia untuk pemanggil lama yang hanya butuh daftar channel. */

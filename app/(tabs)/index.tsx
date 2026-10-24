@@ -17,6 +17,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { loadDefaultPlaylist } from '@/services/defaultPlaylist';
 import { ensureEpgLoaded } from '@/services/epg';
 import { setPlaybackQueue } from '@/services/playbackQueue';
+import { getLastChannel } from '@/services/playlistStorage';
 import type { Channel } from '@/types';
 import { summarizeCategories } from '@/utils/categories';
 import { isPlaceholder, withGridPlaceholders } from '@/utils/grid';
@@ -27,6 +28,7 @@ export default function HomeScreen() {
 
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastChannelId, setLastChannelId] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
@@ -41,9 +43,13 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let active = true;
-    void loadDefaultPlaylist(false).then((data) => {
+    void Promise.all([
+      loadDefaultPlaylist(false),
+      getLastChannel()
+    ]).then(([data, lastId]) => {
       if (!active) return;
       setChannels(data.channels);
+      setLastChannelId(lastId);
       setLoading(false);
       void ensureEpgLoaded(data.epgUrl);
     });
@@ -174,23 +180,35 @@ export default function HomeScreen() {
               ]}
               ListHeaderComponent={
                 <View style={styles.header}>
-                  <View style={styles.hero}>
-                    <Text
-                      style={[styles.heroTitle, { fontSize: isTV ? fontSize.hero : fontSize.xxl }]}
-                    >
-                      DYRLIX TV
-                    </Text>
-                    <Text style={styles.heroSubtitle}>
-                      Tonton channel favorit Anda dalam tampilan gelap yang nyaman di HP, Web, dan
-                      Android TV.
-                    </Text>
-                    <AppButton
-                      title="Tambah Playlist"
-                      icon="add"
-                      large
-                      onPress={() => router.push('/add-playlist')}
-                    />
-                  </View>
+                    <View style={styles.hero}>
+                      <Text
+                        style={[styles.heroTitle, { fontSize: isTV ? fontSize.hero : fontSize.xxl }]}
+                      >
+                        DYRLIX TV
+                      </Text>
+                      <Text style={styles.heroSubtitle}>
+                        Tonton channel favorit Anda dalam tampilan gelap yang nyaman di HP, Web, dan
+                        Android TV.
+                      </Text>
+                      <View style={{flexDirection: 'row', gap: spacing.md}}>
+                        <AppButton
+                          title="Tambah Playlist"
+                          icon="add"
+                          large
+                          onPress={() => router.push('/add-playlist')}
+                        />
+                        {lastChannelId && channels.find(c => c.id === lastChannelId) ? (
+                          <AppButton
+                            title="Lanjutkan Terakhir"
+                            icon="play"
+                            large
+                            variant="secondary"
+                            onPress={() => openChannel(channels.find(c => c.id === lastChannelId)!)}
+                          />
+                        ) : null}
+                      </View>
+                    </View>
+
 
                   <View style={styles.sectionRow}>
                     <Text

@@ -5,6 +5,15 @@ import { parseM3U } from '@/utils/m3uParser';
 import { deriveNameFromUrl, isValidStreamUrl } from '@/utils/url';
 
 const STORAGE_KEY = '@iptv_player/playlists:v1';
+const LAST_CHANNEL_KEY = '@iptv_player/last_channel:v1';
+
+export async function saveLastChannel(channelId: string) {
+  await AsyncStorage.setItem(LAST_CHANNEL_KEY, channelId);
+}
+
+export async function getLastChannel(): Promise<string | null> {
+  return await AsyncStorage.getItem(LAST_CHANNEL_KEY);
+}
 
 function generateId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;

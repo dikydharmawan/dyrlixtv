@@ -20,6 +20,7 @@ import { colors, fontSize, radius, spacing } from '@/constants/theme';
 import { useEpg } from '@/hooks/useEpg';
 import { getNowNext } from '@/services/epg';
 import { getPlaybackQueue } from '@/services/playbackQueue';
+import { saveLastChannel } from '@/services/playlistStorage';
 import { isTV, tvPrefFocus } from '@/components/Tv';
 import { goBack } from '@/utils/navigation';
 import { checkStreamDetail, friendlyStreamError, type StreamCheckDetail } from '@/utils/stream';
@@ -48,6 +49,13 @@ export default function PlayerScreen() {
     if (!epg) return null;
     return getNowNext(activeChannel?.tvgId);
   }, [epg, activeChannel]);
+
+  useEffect(() => {
+    if (activeChannel?.id) {
+      void saveLastChannel(activeChannel.id);
+    }
+  }, [activeChannel?.id]);
+
   const [backFocused, setBackFocused] = useState(false);
   const [preCheck, setPreCheck] = useState<StreamCheckDetail | null>(null);
   const retriedRef = useRef(false);
